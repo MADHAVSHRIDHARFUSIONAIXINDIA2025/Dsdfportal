@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DSDF Fiber Ops
 
-## Getting Started
+Production Next.js rebuild of the Fiber Operations Manager. The original `app.py` stays as reference only.
 
-First, run the development server:
+## What you get
+
+- **Admin panel** at `/admin` — companies, customers/links, tickets, engineers, attendance, reports
+- **Engineer extension** at `/ext` — mobile app-style field portal
+- **Onboarding route** at `/ext/onboard/[token]` — admin generates the link from Engineers
+- **WhatsApp** on ticket assignment and optional onboarding invite
+- **MongoDB** via Mongoose
+- **Tailwind** mobile-first PWA UI
+
+## Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd web
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Set `MONGODB_URI` and a long `AUTH_SECRET`. Then:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run seed
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open [http://localhost:3000](http://localhost:3000).
 
-## Learn More
+First-run alternative: if no admin exists, `/login` shows **Create first admin**.
 
-To learn more about Next.js, take a look at the following resources:
+Default seed login:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Email: `admin@dsdf.local`
+- Password: `Admin@12345`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Engineer onboarding
 
-## Deploy on Vercel
+1. Admin creates the engineer with WhatsApp mobile
+2. Open the engineer and tap **Generate onboarding link**
+3. Engineer opens `/ext/onboard/[token]` on their phone
+4. They set password and activate the field app
+5. Later tickets assigned to them send WhatsApp
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## WhatsApp
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+No business number is required. Meta provides a free test sender.
+
+1. Create a Business app and add WhatsApp at [developers.facebook.com/apps](https://developers.facebook.com/apps).
+2. **WhatsApp → API Setup** → **Generate access token** → `WHATSAPP_TOKEN`.
+3. Copy the test number’s **Phone number ID** → `WHATSAPP_PHONE_NUMBER_ID`.
+4. Add personal number `9079886783` as a **To** test recipient and save it on the engineer.
+5. Restart the Next.js server.
+
+Without token + Phone number ID, assignment only dry-runs.
+
+## Routes
+
+| Path | Audience |
+| --- | --- |
+| `/login` | Admin |
+| `/admin` | Admin operations |
+| `/ext/login` | Engineer |
+| `/ext/onboard/[token]` | Engineer invite |
+| `/ext` | Engineer home / tickets / attendance |
