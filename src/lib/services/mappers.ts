@@ -116,6 +116,7 @@ export function mapTicket(doc: Record<string, unknown>) {
     slaResult: sla.slaResult,
     whatsapp: doc.whatsapp || {},
     whatsappStatus: whatsappLabel(doc.whatsapp),
+    attachments: Array.isArray(doc.attachments) ? doc.attachments : [],
   };
 }
 

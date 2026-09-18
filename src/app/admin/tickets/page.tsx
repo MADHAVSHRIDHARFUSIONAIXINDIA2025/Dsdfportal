@@ -4,6 +4,7 @@ import { PageIntro } from "@/components/layout/PageIntro";
 import { Button } from "@/components/ui/Button";
 import { DataTable } from "@/components/ui/DataTable";
 import { Field, Input, SearchInput, Select, Textarea } from "@/components/ui/Field";
+import { FileUpload } from "@/components/ui/FileUpload";
 import { RecordCard } from "@/components/ui/RecordCard";
 import { Sheet } from "@/components/ui/Sheet";
 import { useToast } from "@/components/ui/Toast";
@@ -43,6 +44,7 @@ type Ticket = {
   slaResult: string | null;
   whatsappStatus?: string;
   notifications?: Array<{ engineer: string; status: string; error?: string }>;
+  attachments?: Array<{ name: string; url: string; size: number; uploadedBy?: string; uploadedAt?: string }>;
 };
 
 function whatsappToast(notices?: Array<{ engineer: string; status: string; error?: string }>) {
@@ -80,6 +82,7 @@ const empty = {
   bOpticalPower: "",
   opticalStatus: "Pending",
   affectedPath: "Main Path",
+  attachments: [] as Array<{ name: string; url: string; size: number; uploadedBy?: string; uploadedAt?: string }>,
 };
 
 export default function TicketsPage() {
@@ -117,6 +120,7 @@ export default function TicketsPage() {
             ...row,
             openTime: toDatetimeLocal(row.openTime),
             closeTime: toDatetimeLocal(row.closeTime),
+            attachments: row.attachments || [],
           }
         : empty
     );
@@ -219,6 +223,12 @@ export default function TicketsPage() {
           <Field label="SLA hours"><Input type="number" step="0.1" value={form.slaHours} onChange={(e) => setForm({ ...form, slaHours: Number(e.target.value) })} /></Field>
           <Field className="md:col-span-2" label="Resolution"><Textarea value={form.resolution} onChange={(e) => setForm({ ...form, resolution: e.target.value })} /></Field>
           <Field className="md:col-span-2" label="Remarks"><Textarea value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} /></Field>
+          <div className="md:col-span-2">
+            <FileUpload
+              attachments={form.attachments}
+              onChange={(attachments) => setForm({ ...form, attachments })}
+            />
+          </div>
           <p className="md:col-span-2 rounded-2xl bg-brand-soft p-3 text-sm text-brand">
             Implementation tickets save only when optical status is OK. Assigning an engineer tries WhatsApp. Add the Meta token in Settings if messages are not going out.
           </p>

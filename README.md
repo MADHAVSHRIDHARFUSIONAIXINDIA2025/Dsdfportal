@@ -55,6 +55,25 @@ No business number is required. Meta provides a free test sender.
 
 Without token + Phone number ID, assignment only dry-runs.
 
+## File Attachments (S3)
+
+Tickets support file attachments (images, PDFs, documents up to 10MB) stored in AWS S3.
+
+**Setup:**
+
+1. Create an AWS S3 bucket (or use existing)
+2. Create IAM credentials with S3 read/write permissions
+3. Add to `.env.local`:
+   ```
+   AWS_ACCESS_KEY_ID=your_key
+   AWS_SECRET_ACCESS_KEY=your_secret
+   AWS_REGION=us-east-1
+   AWS_S3_BUCKET=your-bucket-name
+   ```
+4. Restart the server
+
+Both admin and engineers can upload/view attachments on tickets. Without S3 configuration, the upload feature is disabled gracefully.
+
 ## Routes
 
 | Path | Audience |

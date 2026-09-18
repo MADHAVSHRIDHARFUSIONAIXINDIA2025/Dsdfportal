@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
+import { FileUpload } from "@/components/ui/FileUpload";
 import { Sheet } from "@/components/ui/Sheet";
 import { useToast } from "@/components/ui/Toast";
 import { useResource } from "@/hooks/useResource";
@@ -38,12 +39,19 @@ type Ticket = {
   eng2Id: string;
   slaHours: number;
   affectedPath: string;
+  attachments?: Array<{ name: string; url: string; size: number; uploadedBy?: string; uploadedAt?: string }>;
 };
 
 export default function EngineerTicketsPage() {
   const { data = [], reload } = useResource<Ticket[]>("/api/tickets");
   const [current, setCurrent] = useState<Ticket | null>(null);
+  const [attachments, setAttachments] = useState<Array<{ name: string; url: string; size: number; uploadedBy?: string; uploadedAt?: string }>>([]);
   const toast = useToast();
+
+  function openTicket(ticket: Ticket) {
+    setCurrent(ticket);
+    setAttachments(ticket.attachments || []);
+  }
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,9 +67,11 @@ export default function EngineerTicketsPage() {
         closeTime: fromDatetimeLocal(String(form.get("closeTime") || "")),
         resolution: form.get("resolution"),
         remarks: form.get("remarks"),
+        attachments,
       });
       toast.push("Ticket updated");
       setCurrent(null);
+      setAttachments([]);
       await reload();
     } catch (error) {
       toast.push(error instanceof Error ? error.message : "Update failed", "error");
@@ -74,7 +84,7 @@ export default function EngineerTicketsPage() {
       <div className="space-y-3 md:hidden">
         {data.length ? (
           data.map((ticket) => (
-            <button key={ticket.id} className="w-full text-left" onClick={() => setCurrent(ticket)}>
+            <button key={ticket.id} className="w-full text-left" onClick={() => openTicket(ticket)}>
               <Card className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -103,9 +113,12 @@ export default function EngineerTicketsPage() {
           { key: "opticalStatus", label: "Optical" },
         ]}
         rows={data}
-        onEdit={(id) => setCurrent(data.find((row) => row.id === id) || null)}
+        onEdit={(id) => {
+          const ticket = data.find((row) => row.id === id);
+          if (ticket) openTicket(ticket);
+        }}
       />
-      <Sheet open={Boolean(current)} title={current?.tktNo || "Ticket"} onClose={() => setCurrent(null)}>
+      <Sheet open={Boolean(current)} title={current?.tktNo || "Ticket"} onClose={() => { setCurrent(null); setAttachments([]); }}>
         {current ? (
           <form onSubmit={save} className="grid gap-4 md:grid-cols-2">
             <p className="text-sm text-muted md:col-span-2">{current.customer} · {current.aEnd} → {current.bEnd}</p>
@@ -124,6 +137,12 @@ export default function EngineerTicketsPage() {
             <Field label="Close time"><Input name="closeTime" type="datetime-local" defaultValue={toDatetimeLocal(current.closeTime)} /></Field>
             <Field className="md:col-span-2" label="Resolution"><Textarea name="resolution" defaultValue={current.resolution} /></Field>
             <Field className="md:col-span-2" label="Remarks"><Textarea name="remarks" defaultValue={current.remarks} /></Field>
+            <div className="md:col-span-2">
+              <FileUpload
+                attachments={attachments}
+                onChange={setAttachments}
+              />
+            </div>
             <Button type="submit" className="w-full md:col-span-2">Update ticket</Button>
           </form>
         ) : null}

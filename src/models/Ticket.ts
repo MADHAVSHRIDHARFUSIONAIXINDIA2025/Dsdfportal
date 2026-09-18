@@ -24,6 +24,15 @@ const TicketSchema = new Schema(
       eng1: { sentAt: Date, status: String, error: String },
       eng2: { sentAt: Date, status: String, error: String },
     },
+    attachments: [
+      {
+        name: String,
+        url: String,
+        size: Number,
+        uploadedAt: { type: Date, default: Date.now },
+        uploadedBy: String,
+      },
+    ],
   },
   { timestamps: true }
 );
