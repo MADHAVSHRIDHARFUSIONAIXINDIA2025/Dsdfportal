@@ -43,15 +43,27 @@ type Ticket = {
   duration: string | null;
   slaResult: string | null;
   whatsappStatus?: string;
-  notifications?: Array<{ engineer: string; status: string; error?: string }>;
+  notifications?: Array<{ engineer: string; status: string; error?: string; whatsappLink?: string | null }>;
   attachments?: Array<{ name: string; url: string; size: number; uploadedBy?: string; uploadedAt?: string }>;
 };
 
-function whatsappToast(notices?: Array<{ engineer: string; status: string; error?: string }>) {
+function whatsappToast(notices?: Array<{ engineer: string; status: string; error?: string; whatsappLink?: string | null }>) {
   if (!notices?.length) return "Ticket saved";
+  
+  const hasLinks = notices.some((n) => n.whatsappLink);
+  
+  if (hasLinks) {
+    // Show links in a custom toast message
+    const linksHtml = notices
+      .filter((n) => n.whatsappLink)
+      .map((n) => `<a href="${n.whatsappLink}" target="_blank" class="text-brand underline hover:text-blue-700">Message ${n.engineer}</a>`)
+      .join(" | ");
+    return `Ticket saved. Click to send WhatsApp: ${linksHtml}`;
+  }
+  
   const parts = notices.map((item) => {
     if (item.status === "sent") return `WhatsApp sent to ${item.engineer}`;
-    if (item.status === "dry-run") return `WhatsApp not sent to ${item.engineer} — token is not configured`;
+    if (item.status === "dry-run") return `WhatsApp not configured for ${item.engineer}`;
     if (item.status === "skipped") return `${item.engineer}: ${item.error || "no mobile"}`;
     return `WhatsApp failed for ${item.engineer}: ${item.error || "unknown error"}`;
   });
@@ -92,6 +104,7 @@ export default function TicketsPage() {
   const [id, setId] = useState("");
   const [form, setForm] = useState(empty);
   const [q, setQ] = useState("");
+  const [whatsappLinks, setWhatsappLinks] = useState<Array<{ engineer: string; link: string }>>([]);
   const toast = useToast();
 
   const filtered = useMemo(
@@ -138,7 +151,19 @@ export default function TicketsPage() {
       const saved = id
         ? await patch<Ticket>(`/api/tickets/${id}`, payload)
         : await post<Ticket>("/api/tickets", payload);
-      toast.push(whatsappToast(saved.notifications), saved.notifications?.some((item) => item.status === "failed") ? "error" : "ok");
+      
+      // Extract WhatsApp links if API is not configured
+      const links = (saved.notifications || [])
+        .filter((n) => n.whatsappLink)
+        .map((n) => ({ engineer: n.engineer, link: n.whatsappLink! }));
+      
+      if (links.length > 0) {
+        setWhatsappLinks(links);
+        toast.push("Ticket saved! Click links above to send WhatsApp", "ok");
+      } else {
+        toast.push(whatsappToast(saved.notifications), saved.notifications?.some((item) => item.status === "failed") ? "error" : "ok");
+      }
+      
       setOpen(false);
       await reload();
     } catch (error) {
@@ -149,6 +174,39 @@ export default function TicketsPage() {
   return (
     <div>
       <PageIntro title="Tickets" subtitle="Support and implementation tickets. WhatsApp is sent on engineer assignment." action={{ label: "New ticket", onClick: () => edit() }} />
+      
+      {whatsappLinks.length > 0 && (
+        <div className="mb-4 rounded-2xl bg-green-50 border-2 border-green-200 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <p className="font-bold text-green-900">WhatsApp API not configured</p>
+              <p className="mt-1 text-sm text-green-700">Click the links below to send WhatsApp messages manually:</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {whatsappLinks.map((item, i) => (
+                  <a
+                    key={i}
+                    href={item.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                  >
+                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.890-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                    </svg>
+                    Message {item.engineer}
+                  </a>
+                ))}
+              </div>
+            </div>
+            <button onClick={() => setWhatsappLinks([])} className="text-green-600 hover:text-green-800">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+      
       <SearchInput className="mb-4" placeholder="Search TKT / customer / status / ends..." value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="space-y-3 md:hidden">
         {filtered.map((row) => (

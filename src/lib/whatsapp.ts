@@ -86,7 +86,25 @@ export function assignmentMessage(input: TicketNotifyInput) {
     .join("\n");
 }
 
+export function generateWhatsAppLink(input: TicketNotifyInput) {
+  const phone = normalizePhone(input.to);
+  const message = assignmentMessage(input);
+  const encoded = encodeURIComponent(message);
+  return phone ? `https://wa.me/${phone}?text=${encoded}` : null;
+}
+
 export async function notifyTicketAssignment(input: TicketNotifyInput) {
+  // If API is not configured, return wa.me link instead
+  if (!isWhatsAppConfigured()) {
+    const link = generateWhatsAppLink(input);
+    return {
+      ok: false,
+      dryRun: true,
+      whatsappLink: link,
+      error: "WhatsApp API not configured. Click the link to send manually.",
+    };
+  }
+
   try {
     return await sendWhatsAppText(input.to, assignmentMessage(input));
   } catch (error) {

@@ -43,6 +43,7 @@ export type WhatsAppNotice = {
   engineer: string;
   status: "sent" | "dry-run" | "failed" | "skipped";
   error?: string;
+  whatsappLink?: string | null;
 };
 
 async function notifyIfAssigned(ticketId: string, prev?: { eng1Id?: string; eng2Id?: string }) {
@@ -83,13 +84,19 @@ async function notifyIfAssigned(ticketId: string, prev?: { eng1Id?: string; eng2
       city: customer?.city,
     });
     const status = result.ok ? "sent" : result.dryRun ? "dry-run" : "failed";
+    const whatsappLink = "whatsappLink" in result ? result.whatsappLink : undefined;
     ticket.whatsapp = ticket.whatsapp || {};
     ticket.whatsapp[job.key] = {
       sentAt: new Date(),
       status,
       error: "error" in result ? result.error || "" : "",
     };
-    notices.push({ engineer: name, status, error: "error" in result ? result.error : undefined });
+    notices.push({ 
+      engineer: name, 
+      status, 
+      error: "error" in result ? result.error : undefined,
+      whatsappLink,
+    });
   }
 
   await ticket.save();
