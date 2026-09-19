@@ -6,6 +6,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { RecordCard } from "@/components/ui/RecordCard";
 import { Sheet } from "@/components/ui/Sheet";
+import { TableSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useResource } from "@/hooks/useResource";
 import { displayPhone } from "@/lib/utils";
@@ -29,7 +30,7 @@ type Engineer = {
 const empty = { name: "", empId: "", post: "", department: "", mobile: "", joiningDate: "", status: "Active", area: "", password: "", confirmPassword: "" };
 
 export default function EngineersPage() {
-  const { data = [], reload, remove } = useResource<Engineer[]>("/api/engineers");
+  const { data = [], loading, reload, remove } = useResource<Engineer[]>("/api/engineers");
   const [open, setOpen] = useState(false);
   const [id, setId] = useState("");
   const [form, setForm] = useState(empty);
@@ -80,32 +81,46 @@ export default function EngineersPage() {
   return (
     <div>
       <PageIntro title="Engineers" subtitle="Set a login password here, or send the /ext onboarding link." action={{ label: "Add engineer", onClick: () => edit() }} />
-      <div className="space-y-3 md:hidden">
-        {data.map((row) => (
-          <RecordCard
-            key={row.id}
-            title={row.name}
-            meta={[row.empId && `Emp ${row.empId}`, displayPhone(row.mobile), row.area, row.post]}
-            badges={[row.status, row.hasPassword ? "Password set" : row.onboardStatus]}
-            onEdit={() => edit(row)}
-            onDelete={() => remove(row.id)}
+      
+      {loading ? (
+        <>
+          <div className="md:hidden">
+            <CardSkeleton count={5} />
+          </div>
+          <div className="hidden md:block">
+            <TableSkeleton rows={5} columns={7} />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="space-y-3 md:hidden">
+            {data.map((row) => (
+              <RecordCard
+                key={row.id}
+                title={row.name}
+                meta={[row.empId && `Emp ${row.empId}`, displayPhone(row.mobile), row.area, row.post]}
+                badges={[row.status, row.hasPassword ? "Password set" : row.onboardStatus]}
+                onEdit={() => edit(row)}
+                onDelete={() => remove(row.id)}
+              />
+            ))}
+          </div>
+          <DataTable
+            columns={[
+              { key: "name", label: "Name" },
+              { key: "empId", label: "Emp ID" },
+              { key: "mobile", label: "Mobile" },
+              { key: "area", label: "Area" },
+              { key: "onboardStatus", label: "Onboard" },
+              { key: "passwordStatus", label: "Password" },
+              { key: "status", label: "Status" },
+            ]}
+            rows={data.map((row) => ({ ...row, passwordStatus: row.hasPassword ? "Set" : "Not set" }))}
+            onEdit={(rowId) => edit(data.find((row) => row.id === rowId))}
+            onDelete={remove}
           />
-        ))}
-      </div>
-      <DataTable
-        columns={[
-          { key: "name", label: "Name" },
-          { key: "empId", label: "Emp ID" },
-          { key: "mobile", label: "Mobile" },
-          { key: "area", label: "Area" },
-          { key: "onboardStatus", label: "Onboard" },
-          { key: "passwordStatus", label: "Password" },
-          { key: "status", label: "Status" },
-        ]}
-        rows={data.map((row) => ({ ...row, passwordStatus: row.hasPassword ? "Set" : "Not set" }))}
-        onEdit={(rowId) => edit(data.find((row) => row.id === rowId))}
-        onDelete={remove}
-      />
+        </>
+      )}
       <Sheet open={open} title={id ? "Update engineer" : "Add engineer"} onClose={() => setOpen(false)}>
         <form onSubmit={save} className="grid gap-4">
           <Field label="Name *"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></Field>

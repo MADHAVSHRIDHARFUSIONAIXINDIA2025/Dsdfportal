@@ -6,6 +6,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import { RecordCard } from "@/components/ui/RecordCard";
 import { Sheet } from "@/components/ui/Sheet";
+import { TableSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useResource } from "@/hooks/useResource";
 import { patch, post } from "@/lib/client";
@@ -24,7 +25,7 @@ type Company = {
 const empty = { name: "", contact: "", email: "", address: "", status: "Active", remarks: "" };
 
 export default function CompaniesPage() {
-  const { data = [], reload, remove } = useResource<Company[]>("/api/companies");
+  const { data = [], loading, reload, remove } = useResource<Company[]>("/api/companies");
   const [open, setOpen] = useState(false);
   const [id, setId] = useState("");
   const [form, setForm] = useState(empty);
@@ -52,30 +53,44 @@ export default function CompaniesPage() {
   return (
     <div>
       <PageIntro title="Company master" subtitle="Register each customer company once." action={{ label: "Add company", onClick: () => edit() }} />
-      <div className="space-y-3 md:hidden">
-        {data.map((row) => (
-          <RecordCard
-            key={row.id}
-            title={row.name}
-            meta={[row.contact, row.email, row.address]}
-            badges={[row.status]}
-            onEdit={() => edit(row)}
-            onDelete={() => remove(row.id)}
+      
+      {loading ? (
+        <>
+          <div className="md:hidden">
+            <CardSkeleton count={5} />
+          </div>
+          <div className="hidden md:block">
+            <TableSkeleton rows={5} columns={5} />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="space-y-3 md:hidden">
+            {data.map((row) => (
+              <RecordCard
+                key={row.id}
+                title={row.name}
+                meta={[row.contact, row.email, row.address]}
+                badges={[row.status]}
+                onEdit={() => edit(row)}
+                onDelete={() => remove(row.id)}
+              />
+            ))}
+          </div>
+          <DataTable
+            columns={[
+              { key: "name", label: "Company" },
+              { key: "contact", label: "Contact" },
+              { key: "email", label: "Email" },
+              { key: "address", label: "Address" },
+              { key: "status", label: "Status" },
+            ]}
+            rows={data}
+            onEdit={(rowId) => edit(data.find((row) => row.id === rowId))}
+            onDelete={remove}
           />
-        ))}
-      </div>
-      <DataTable
-        columns={[
-          { key: "name", label: "Company" },
-          { key: "contact", label: "Contact" },
-          { key: "email", label: "Email" },
-          { key: "address", label: "Address" },
-          { key: "status", label: "Status" },
-        ]}
-        rows={data}
-        onEdit={(rowId) => edit(data.find((row) => row.id === rowId))}
-        onDelete={remove}
-      />
+        </>
+      )}
       <Sheet open={open} title={id ? "Update company" : "Register company"} onClose={() => setOpen(false)}>
         <form onSubmit={save} className="grid gap-4">
           <Field label="Company name *"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></Field>
