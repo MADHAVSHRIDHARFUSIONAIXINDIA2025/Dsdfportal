@@ -63,13 +63,14 @@ export default function EngineerTicketsPage() {
   async function openTicket(ticket: Ticket) {
     setCurrent(ticket);
     setAttachments(ticket.attachments || []);
-    
-    // Load JC records for this ticket
+    setJcRecords([]);
+
+    // Load JC history for this link (shared across all tickets on the same link)
+    if (!ticket.customerId) return;
     try {
-      const res = await fetch(`/api/jc?ticketId=${ticket.id}`);
+      const res = await fetch(`/api/jc?customerId=${ticket.customerId}`);
       if (res.ok) {
-        const records = await res.json();
-        setJcRecords(records);
+        setJcRecords(await res.json());
       }
     } catch (error) {
       console.error("Failed to load JC records:", error);

@@ -5,7 +5,7 @@ import { Button } from "./Button";
 import { Field, Input, Textarea } from "./Field";
 import { MapPin, Camera, Loader2 } from "lucide-react";
 
-type JCRecord = {
+export type JCRecord = {
   id: string;
   engineer: string;
   latitude: string;
@@ -20,9 +20,11 @@ type JCAddProps = {
   customerId: string;
   records: JCRecord[];
   onAdd: (record: JCRecord) => void;
+  /** When false, only show history table (e.g. admin link view). */
+  allowAdd?: boolean;
 };
 
-export function JCAdd({ ticketId, customerId, records, onAdd }: JCAddProps) {
+export function JCAdd({ ticketId, customerId, records, onAdd, allowAdd = true }: JCAddProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [latitude, setLatitude] = useState("");
@@ -32,15 +34,15 @@ export function JCAdd({ ticketId, customerId, records, onAdd }: JCAddProps) {
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
 
+  const canAdd = allowAdd && Boolean(ticketId && customerId);
+
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (file.size > 10 * 1024 * 1024) {
       setError("Image must be under 10MB");
       return;
     }
-
     setImage(file);
     setPreview(URL.createObjectURL(file));
     setError("");
@@ -52,15 +54,12 @@ export function JCAdd({ ticketId, customerId, records, onAdd }: JCAddProps) {
       setError("Geolocation not supported by your browser");
       return;
     }
-
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setLatitude(position.coords.latitude.toFixed(6));
         setLongitude(position.coords.longitude.toFixed(6));
       },
-      (err) => {
-        setError(`Location error: ${err.message}`);
-      }
+      (err) => setError(`Location error: ${err.message}`)
     );
   }
 
@@ -70,10 +69,13 @@ export function JCAdd({ ticketId, customerId, records, onAdd }: JCAddProps) {
       setError("Image, latitude, and longitude are required");
       return;
     }
+    if (!customerId) {
+      setError("Ticket must be linked to a customer/link to add JC");
+      return;
+    }
 
     setLoading(true);
     setError("");
-
     try {
       const formData = new FormData();
       formData.append("ticketId", ticketId);
@@ -83,20 +85,13 @@ export function JCAdd({ ticketId, customerId, records, onAdd }: JCAddProps) {
       formData.append("remarks", remarks);
       formData.append("image", image);
 
-      const res = await fetch("/api/jc", {
-        method: "POST",
-        body: formData,
-      });
-
+      const res = await fetch("/api/jc", { method: "POST", body: formData });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to add JC");
       }
 
-      const newRecord = await res.json();
-      onAdd(newRecord);
-
-      // Reset form
+      onAdd(await res.json());
       setLatitude("");
       setLongitude("");
       setRemarks("");
@@ -112,43 +107,39 @@ export function JCAdd({ ticketId, customerId, records, onAdd }: JCAddProps) {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-muted">
-          Joint Closures ({records.length})
-        </label>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => setOpen(!open)}
-        >
-          {open ? "Cancel" : "+ Add JC"}
-        </Button>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-muted">
+            Link JC history ({records.length})
+          </label>
+          <p className="mt-0.5 text-xs text-muted">Joint closures for this link — shared across all tickets.</p>
+        </div>
+        {canAdd ? (
+          <Button type="button" variant="secondary" size="sm" onClick={() => setOpen(!open)}>
+            {open ? "Cancel" : "+ Add JC"}
+          </Button>
+        ) : null}
       </div>
 
-      {open && (
+      {allowAdd && !customerId ? (
+        <p className="mt-2 rounded-xl bg-amber-50 p-2 text-xs text-amber-800">
+          This ticket has no link. Assign a customer/link to add and view JC history.
+        </p>
+      ) : null}
+
+      {open && canAdd ? (
         <form onSubmit={handleSubmit} className="mt-3 space-y-3 rounded-2xl border border-line bg-canvas p-4">
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="Latitude *">
               <div className="flex gap-2">
-                <Input
-                  value={latitude}
-                  onChange={(e) => setLatitude(e.target.value)}
-                  placeholder="12.345678"
-                  required
-                />
+                <Input value={latitude} onChange={(e) => setLatitude(e.target.value)} placeholder="12.345678" required />
                 <Button type="button" variant="secondary" onClick={getLocation} title="Get current location">
                   <MapPin className="h-4 w-4" />
                 </Button>
               </div>
             </Field>
             <Field label="Longitude *">
-              <Input
-                value={longitude}
-                onChange={(e) => setLongitude(e.target.value)}
-                placeholder="77.123456"
-                required
-              />
+              <Input value={longitude} onChange={(e) => setLongitude(e.target.value)} placeholder="77.123456" required />
             </Field>
           </div>
 
@@ -156,34 +147,21 @@ export function JCAdd({ ticketId, customerId, records, onAdd }: JCAddProps) {
             <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-line bg-white px-4 py-3 text-sm font-medium text-muted transition-colors hover:border-brand hover:bg-blue-50 hover:text-brand">
               <Camera className="h-4 w-4" />
               {image ? image.name : "Choose image"}
-              <input
-                type="file"
-                className="sr-only"
-                accept="image/*"
-                onChange={handleImageChange}
-                required
-              />
+              <input type="file" className="sr-only" accept="image/*" onChange={handleImageChange} required />
             </label>
           </Field>
 
-          {preview && (
+          {preview ? (
             <div className="overflow-hidden rounded-xl">
               <img src={preview} alt="Preview" className="h-48 w-full object-cover" />
             </div>
-          )}
+          ) : null}
 
           <Field label="Remarks">
-            <Textarea
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Optional notes about this JC"
-              rows={2}
-            />
+            <Textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Optional notes about this JC" rows={2} />
           </Field>
 
-          {error && (
-            <p className="rounded-lg bg-red-50 p-2 text-xs text-red-700">{error}</p>
-          )}
+          {error ? <p className="rounded-lg bg-red-50 p-2 text-xs text-red-700">{error}</p> : null}
 
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? (
@@ -196,9 +174,9 @@ export function JCAdd({ ticketId, customerId, records, onAdd }: JCAddProps) {
             )}
           </Button>
         </form>
-      )}
+      ) : null}
 
-      {records.length > 0 && (
+      {records.length > 0 ? (
         <div className="mt-3 overflow-x-auto rounded-2xl border border-line">
           <table className="w-full text-sm">
             <thead className="border-b border-line bg-canvas text-left">
@@ -225,25 +203,20 @@ export function JCAdd({ ticketId, customerId, records, onAdd }: JCAddProps) {
                     </a>
                   </td>
                   <td className="p-3">
-                    <a
-                      href={jc.imageUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-brand hover:underline"
-                    >
+                    <a href={jc.imageUrl} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
                       View Image
                     </a>
                   </td>
                   <td className="p-3 text-muted">{jc.remarks || "—"}</td>
-                  <td className="p-3 text-muted">
-                    {new Date(jc.createdAt).toLocaleDateString()}
-                  </td>
+                  <td className="p-3 text-muted">{new Date(jc.createdAt).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      )}
+      ) : customerId ? (
+        <p className="mt-2 text-xs text-muted">No joint closures on this link yet.</p>
+      ) : null}
     </div>
   );
 }

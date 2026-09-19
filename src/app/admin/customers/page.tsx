@@ -4,6 +4,7 @@ import { PageIntro } from "@/components/layout/PageIntro";
 import { Button } from "@/components/ui/Button";
 import { DataTable } from "@/components/ui/DataTable";
 import { Field, Input, SearchInput, Select, Textarea } from "@/components/ui/Field";
+import { JCAdd, type JCRecord } from "@/components/ui/JCAdd";
 import { RecordCard } from "@/components/ui/RecordCard";
 import { Sheet } from "@/components/ui/Sheet";
 import { useToast } from "@/components/ui/Toast";
@@ -86,6 +87,7 @@ export default function CustomersPage() {
   const [q, setQ] = useState("");
   const [city, setCity] = useState("");
   const [uploadingKml, setUploadingKml] = useState(false);
+  const [jcRecords, setJcRecords] = useState<JCRecord[]>([]);
   const toast = useToast();
 
   const cities = useMemo(() => [...new Set(data.map((row) => row.city).filter(Boolean))].sort(), [data]);
@@ -105,10 +107,19 @@ export default function CustomersPage() {
     }));
   }
 
-  function edit(row?: Customer) {
+  async function edit(row?: Customer) {
     setId(row?.id || "");
     setForm(row ? { ...empty, ...row } : empty);
+    setJcRecords([]);
     setOpen(true);
+    if (row?.id) {
+      try {
+        const res = await fetch(`/api/jc?customerId=${row.id}`);
+        if (res.ok) setJcRecords(await res.json());
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   async function save(event: React.FormEvent) {
@@ -299,6 +310,18 @@ export default function CustomersPage() {
             )}
             <p className="mt-1 text-xs text-muted">Upload KML file for link path visualization</p>
           </div>
+
+          {id ? (
+            <div className="md:col-span-2">
+              <JCAdd
+                ticketId=""
+                customerId={id}
+                records={jcRecords}
+                onAdd={() => {}}
+                allowAdd={false}
+              />
+            </div>
+          ) : null}
           
           <Button type="submit" className="md:col-span-2 w-full">Save customer / link</Button>
         </form>

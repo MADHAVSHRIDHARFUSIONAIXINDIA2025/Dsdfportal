@@ -1,42 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
-import { uploadToS3 } from "@/lib/s3";
-import { JointClosure } from "@/models";
+import { isS3Configured, uploadToS3 } from "@/lib/s3";
+import { JointClosure, Ticket } from "@/models";
 
-// List JC for a ticket
+function mapJc(jc: Record<string, unknown>) {
+  const eng =
+    jc.engineerId && typeof jc.engineerId === "object"
+      ? (jc.engineerId as { name?: string; _id?: unknown })
+      : null;
+  return {
+    id: String(jc._id),
+    ticketId: jc.ticketId ? String(jc.ticketId) : "",
+    customerId: jc.customerId ? String(jc.customerId) : "",
+    engineerId: eng?._id ? String(eng._id) : jc.engineerId ? String(jc.engineerId) : "",
+    engineer: eng?.name || String(jc.addedBy || "Engineer"),
+    latitude: String(jc.latitude || ""),
+    longitude: String(jc.longitude || ""),
+    imageUrl: String(jc.imageUrl || ""),
+    remarks: String(jc.remarks || ""),
+    createdAt: jc.createdAt,
+  };
+}
+
+/** List JC history for a link (customer). Prefer customerId so history spans tickets. */
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireUser();
+    await requireUser();
     await connectDB();
 
     const { searchParams } = new URL(request.url);
-    const ticketId = searchParams.get("ticketId");
-    const customerId = searchParams.get("customerId");
+    let customerId = searchParams.get("customerId") || "";
+    const ticketId = searchParams.get("ticketId") || "";
 
-    const query: Record<string, unknown> = {};
-    if (ticketId) query.ticketId = ticketId;
-    if (customerId) query.customerId = customerId;
+    if (!customerId && ticketId) {
+      const ticket = await Ticket.findById(ticketId).select("customerId").lean();
+      customerId = ticket?.customerId ? String(ticket.customerId) : "";
+    }
 
-    const jcs = await JointClosure.find(query)
+    if (!customerId) {
+      return NextResponse.json([]);
+    }
+
+    const jcs = await JointClosure.find({ customerId })
       .populate("engineerId", "name")
       .sort({ createdAt: -1 })
       .lean();
 
-    const result = jcs.map((jc) => ({
-      id: String(jc._id),
-      ticketId: String(jc.ticketId),
-      customerId: String(jc.customerId),
-      engineerId: String(jc.engineerId),
-      engineer: (jc.engineerId as { name?: string })?.name || "",
-      latitude: jc.latitude,
-      longitude: jc.longitude,
-      imageUrl: jc.imageUrl,
-      remarks: jc.remarks || "",
-      createdAt: jc.createdAt,
-    }));
-
-    return NextResponse.json(result);
+    return NextResponse.json(jcs.map((jc) => mapJc(jc as Record<string, unknown>)));
   } catch (error) {
     console.error("[jc:list]", error);
     return NextResponse.json(
@@ -46,56 +57,65 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Add new JC
+/** Engineer adds JC on a ticket — stored against the link for future tickets. */
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser();
     await connectDB();
 
-    const formData = await request.formData();
-    const ticketId = formData.get("ticketId") as string;
-    const customerId = formData.get("customerId") as string;
-    const latitude = formData.get("latitude") as string;
-    const longitude = formData.get("longitude") as string;
-    const remarks = formData.get("remarks") as string;
-    const image = formData.get("image") as File | null;
-
-    if (!ticketId || !customerId || !latitude || !longitude || !image) {
+    if (!isS3Configured()) {
       return NextResponse.json(
-        { error: "Ticket, customer, lat/long, and image are required" },
+        { error: "S3 is not configured. Add AWS keys to enable JC image upload." },
         { status: 400 }
       );
     }
 
-    // Upload image to S3
+    const formData = await request.formData();
+    const ticketId = (formData.get("ticketId") as string) || "";
+    let customerId = (formData.get("customerId") as string) || "";
+    const latitude = formData.get("latitude") as string;
+    const longitude = formData.get("longitude") as string;
+    const remarks = (formData.get("remarks") as string) || "";
+    const image = formData.get("image") as File | null;
+
+    if (!ticketId) {
+      return NextResponse.json({ error: "Ticket is required to add JC" }, { status: 400 });
+    }
+
+    if (!customerId) {
+      const ticket = await Ticket.findById(ticketId).select("customerId").lean();
+      customerId = ticket?.customerId ? String(ticket.customerId) : "";
+    }
+
+    if (!customerId) {
+      return NextResponse.json(
+        { error: "This ticket has no link. Assign a customer/link before adding JC." },
+        { status: 400 }
+      );
+    }
+
+    if (!latitude || !longitude || !image) {
+      return NextResponse.json(
+        { error: "Latitude, longitude, and image are required" },
+        { status: 400 }
+      );
+    }
+
     const uploaded = await uploadToS3(image, "jc");
 
     const jc = await JointClosure.create({
       ticketId,
       customerId,
-      engineerId: user.engineerId || user.id,
+      ...(user.engineerId ? { engineerId: user.engineerId } : {}),
+      addedBy: user.name || "Engineer",
       latitude,
       longitude,
       imageUrl: uploaded.url,
-      remarks: remarks || "",
+      remarks,
     });
 
-    const populated = await JointClosure.findById(jc._id)
-      .populate("engineerId", "name")
-      .lean();
-
-    return NextResponse.json({
-      id: String(populated!._id),
-      ticketId: String(populated!.ticketId),
-      customerId: String(populated!.customerId),
-      engineerId: String(populated!.engineerId),
-      engineer: (populated!.engineerId as { name?: string })?.name || "",
-      latitude: populated!.latitude,
-      longitude: populated!.longitude,
-      imageUrl: populated!.imageUrl,
-      remarks: populated!.remarks || "",
-      createdAt: populated!.createdAt,
-    });
+    const populated = await JointClosure.findById(jc._id).populate("engineerId", "name").lean();
+    return NextResponse.json(mapJc(populated as Record<string, unknown>));
   } catch (error) {
     console.error("[jc:create]", error);
     return NextResponse.json(

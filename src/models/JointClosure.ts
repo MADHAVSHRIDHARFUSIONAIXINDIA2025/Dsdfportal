@@ -2,9 +2,10 @@ import { Schema, model, models } from "mongoose";
 
 const JointClosureSchema = new Schema(
   {
-    ticketId: { type: Schema.Types.ObjectId, ref: "Ticket", required: true },
-    customerId: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
-    engineerId: { type: Schema.Types.ObjectId, ref: "Engineer", required: true },
+    ticketId: { type: Schema.Types.ObjectId, ref: "Ticket" },
+    customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
+    engineerId: { type: Schema.Types.ObjectId, ref: "Engineer" },
+    addedBy: { type: String, default: "" },
     latitude: { type: String, required: true },
     longitude: { type: String, required: true },
     imageUrl: { type: String, required: true },
