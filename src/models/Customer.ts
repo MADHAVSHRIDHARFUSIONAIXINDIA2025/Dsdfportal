@@ -30,6 +30,7 @@ const CustomerSchema = new Schema(
     slaHours: { type: Number, default: 4 },
     status: { type: String, default: "Active" },
     remarks: String,
+    kmlFileUrl: String,
   },
   { timestamps: true }
 );

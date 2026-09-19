@@ -60,6 +60,7 @@ export function mapCustomer(doc: Record<string, unknown>) {
     slaHours: doc.slaHours || 4,
     status: doc.status || "Active",
     remarks: doc.remarks || "",
+    kmlFileUrl: doc.kmlFileUrl || "",
   };
 }
 

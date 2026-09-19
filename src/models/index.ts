@@ -4,6 +4,7 @@ export { Customer } from "./Customer";
 export { Engineer } from "./Engineer";
 export { Invite } from "./Invite";
 export { Ticket } from "./Ticket";
+export { JointClosure } from "./JointClosure";
 export { Material } from "./Material";
 export { Movement } from "./Movement";
 export { EngineerStock } from "./EngineerStock";

@@ -8,6 +8,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import { FileUpload } from "@/components/ui/FileUpload";
+import { JCAdd } from "@/components/ui/JCAdd";
 import { Sheet } from "@/components/ui/Sheet";
 import { useToast } from "@/components/ui/Toast";
 import { useResource } from "@/hooks/useResource";
@@ -42,15 +43,37 @@ type Ticket = {
   attachments?: Array<{ name: string; url: string; size: number; uploadedBy?: string; uploadedAt?: string }>;
 };
 
+type JCRecord = {
+  id: string;
+  engineer: string;
+  latitude: string;
+  longitude: string;
+  imageUrl: string;
+  remarks: string;
+  createdAt: string;
+};
+
 export default function EngineerTicketsPage() {
   const { data = [], reload } = useResource<Ticket[]>("/api/tickets");
   const [current, setCurrent] = useState<Ticket | null>(null);
   const [attachments, setAttachments] = useState<Array<{ name: string; url: string; size: number; uploadedBy?: string; uploadedAt?: string }>>([]);
+  const [jcRecords, setJcRecords] = useState<JCRecord[]>([]);
   const toast = useToast();
 
-  function openTicket(ticket: Ticket) {
+  async function openTicket(ticket: Ticket) {
     setCurrent(ticket);
     setAttachments(ticket.attachments || []);
+    
+    // Load JC records for this ticket
+    try {
+      const res = await fetch(`/api/jc?ticketId=${ticket.id}`);
+      if (res.ok) {
+        const records = await res.json();
+        setJcRecords(records);
+      }
+    } catch (error) {
+      console.error("Failed to load JC records:", error);
+    }
   }
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
@@ -118,7 +141,7 @@ export default function EngineerTicketsPage() {
           if (ticket) openTicket(ticket);
         }}
       />
-      <Sheet open={Boolean(current)} title={current?.tktNo || "Ticket"} onClose={() => { setCurrent(null); setAttachments([]); }}>
+      <Sheet open={Boolean(current)} title={current?.tktNo || "Ticket"} onClose={() => { setCurrent(null); setAttachments([]); setJcRecords([]); }}>
         {current ? (
           <form onSubmit={save} className="grid gap-4 md:grid-cols-2">
             <p className="text-sm text-muted md:col-span-2">{current.customer} · {current.aEnd} → {current.bEnd}</p>
@@ -141,6 +164,14 @@ export default function EngineerTicketsPage() {
               <FileUpload
                 attachments={attachments}
                 onChange={setAttachments}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <JCAdd
+                ticketId={current.id}
+                customerId={current.customerId}
+                records={jcRecords}
+                onAdd={(newRecord) => setJcRecords([newRecord, ...jcRecords])}
               />
             </div>
             <Button type="submit" className="w-full md:col-span-2">Update ticket</Button>

@@ -43,6 +43,7 @@ type Customer = {
   slaHours: number;
   status: string;
   remarks: string;
+  kmlFileUrl?: string;
 };
 
 const empty: Omit<Customer, "id" | "companyName"> = {
@@ -73,6 +74,7 @@ const empty: Omit<Customer, "id" | "companyName"> = {
   slaHours: 4,
   status: "Active",
   remarks: "",
+  kmlFileUrl: "",
 };
 
 export default function CustomersPage() {
@@ -83,6 +85,7 @@ export default function CustomersPage() {
   const [form, setForm] = useState(empty);
   const [q, setQ] = useState("");
   const [city, setCity] = useState("");
+  const [uploadingKml, setUploadingKml] = useState(false);
   const toast = useToast();
 
   const cities = useMemo(() => [...new Set(data.map((row) => row.city).filter(Boolean))].sort(), [data]);
@@ -118,6 +121,41 @@ export default function CustomersPage() {
       await reload();
     } catch (error) {
       toast.push(error instanceof Error ? error.message : "Save failed", "error");
+    }
+  }
+
+  async function handleKmlUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith(".kml")) {
+      toast.push("Please select a .kml file", "error");
+      return;
+    }
+
+    setUploadingKml(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Upload failed");
+      }
+
+      const result = await res.json();
+      setForm({ ...form, kmlFileUrl: result.url });
+      toast.push("KML file uploaded", "ok");
+    } catch (error) {
+      toast.push(error instanceof Error ? error.message : "Upload failed", "error");
+    } finally {
+      setUploadingKml(false);
+      e.target.value = "";
     }
   }
 
@@ -209,6 +247,59 @@ export default function CustomersPage() {
           <Field label="SLA hours"><Input type="number" step="0.1" value={form.slaHours} onChange={(e) => setForm({ ...form, slaHours: Number(e.target.value) })} /></Field>
           <Field label="Status"><Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><option>Active</option><option>Inactive</option></Select></Field>
           <Field className="md:col-span-2" label="Remarks"><Textarea value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} /></Field>
+          
+          <div className="md:col-span-2">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">
+              KML File (Optional)
+            </label>
+            {form.kmlFileUrl ? (
+              <div className="flex items-center gap-3 rounded-xl border border-line bg-canvas p-3">
+                <svg className="h-5 w-5 flex-shrink-0 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <a href={form.kmlFileUrl} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-sm font-medium text-brand hover:underline">
+                  View KML File
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, kmlFileUrl: "" })}
+                  className="rounded-lg p-1 text-muted hover:bg-slate-100 hover:text-ink"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-line bg-canvas px-4 py-3 text-sm font-medium text-muted transition-colors hover:border-brand hover:bg-blue-50 hover:text-brand">
+                {uploadingKml ? (
+                  <>
+                    <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    Upload KML file
+                  </>
+                )}
+                <input
+                  type="file"
+                  className="sr-only"
+                  accept=".kml"
+                  onChange={handleKmlUpload}
+                  disabled={uploadingKml}
+                />
+              </label>
+            )}
+            <p className="mt-1 text-xs text-muted">Upload KML file for link path visualization</p>
+          </div>
+          
           <Button type="submit" className="md:col-span-2 w-full">Save customer / link</Button>
         </form>
       </Sheet>
