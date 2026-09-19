@@ -9,12 +9,26 @@ import type { ticketSchema } from "@/lib/validations";
 type TicketInput = z.infer<typeof ticketSchema>;
 
 async function hydrateTicket(input: TicketInput) {
-  const customer = await Customer.findById(input.customerId);
-  if (!customer) throw new AppError("Customer / link was not found");
+  let aEnd = input.aEnd;
+  let bEnd = input.bEnd;
+  let slaHours = input.slaHours || 4;
+  let affectedPath = input.affectedPath || "Main Path";
 
-  const aEnd = input.aEnd || customer.aEnd;
-  const bEnd = input.bEnd || customer.bEnd;
-  if (!aEnd || !bEnd) throw new AppError("A-End and B-End are required for this ticket");
+  if (input.customerId) {
+    const customer = await Customer.findById(input.customerId);
+    if (!customer) throw new AppError("Customer / link was not found");
+
+    aEnd = input.aEnd || customer.aEnd;
+    bEnd = input.bEnd || customer.bEnd;
+    slaHours = input.slaHours || customer.slaHours || 4;
+    affectedPath = input.affectedPath || customer.pathName || "Main Path";
+    
+    if (customer.linkType === "Linear") affectedPath = "Main Path";
+  }
+
+  if (!aEnd || !bEnd) {
+    throw new AppError("A-End and B-End are required for this ticket");
+  }
 
   const ticketType = input.ticketType || "Support";
   const opticalStatus = input.opticalStatus || "Pending";
@@ -22,18 +36,16 @@ async function hydrateTicket(input: TicketInput) {
     throw new AppError("Implementation ticket can be saved only when Optical Power Status is OK");
   }
 
-  let affectedPath = input.affectedPath || customer.pathName || "Main Path";
-  if (customer.linkType === "Linear") affectedPath = "Main Path";
-
   return {
     ...input,
+    customerId: input.customerId || undefined,
     aEnd,
     bEnd,
     ticketType,
     opticalStatus,
     affectedPath,
     openTime: input.openTime || nowLabel(),
-    slaHours: input.slaHours || customer.slaHours || 4,
+    slaHours,
     eng1Id: input.eng1Id || undefined,
     eng2Id: input.eng2Id || undefined,
   };

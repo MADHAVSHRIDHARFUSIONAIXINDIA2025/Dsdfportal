@@ -72,7 +72,7 @@ function whatsappToast(notices?: Array<{ engineer: string; status: string; error
 
 type Lookups = {
   customers: Array<{ id: string; name: string; companyName: string; city: string; linkId: string; pathName: string; linkType: string; aEnd: string; bEnd: string; slaHours: number }>;
-  engineers: Array<{ id: string; name: string }>;
+  engineers: Array<{ id: string; name: string; area: string }>;
 };
 
 const empty = {
@@ -105,6 +105,7 @@ export default function TicketsPage() {
   const [form, setForm] = useState(empty);
   const [q, setQ] = useState("");
   const [whatsappLinks, setWhatsappLinks] = useState<Array<{ engineer: string; link: string }>>([]);
+  const [selectedCity, setSelectedCity] = useState("");
   const toast = useToast();
 
   const filtered = useMemo(
@@ -112,8 +113,17 @@ export default function TicketsPage() {
     [data, q]
   );
 
+  // Filter engineers by selected customer's city
+  const filteredEngineers = useMemo(() => {
+    if (!selectedCity) return lookups.data?.engineers || [];
+    return (lookups.data?.engineers || []).filter((eng) => 
+      eng.area?.toLowerCase() === selectedCity.toLowerCase()
+    );
+  }, [lookups.data?.engineers, selectedCity]);
+
   function pickCustomer(customerId: string) {
     const customer = lookups.data?.customers.find((row) => row.id === customerId);
+    setSelectedCity(customer?.city || "");
     setForm((current) => ({
       ...current,
       customerId,
@@ -126,6 +136,8 @@ export default function TicketsPage() {
 
   function edit(row?: Ticket) {
     setId(row?.id || "");
+    const customer = lookups.data?.customers.find((c) => c.id === row?.customerId);
+    setSelectedCity(customer?.city || "");
     setForm(
       row
         ? {
@@ -241,9 +253,9 @@ export default function TicketsPage() {
               {TICKET_TYPES.map((item) => <option key={item}>{item}</option>)}
             </Select>
           </Field>
-          <Field label="Customer / link *">
-            <Select value={form.customerId} onChange={(e) => pickCustomer(e.target.value)} required>
-              <option value="">Select customer</option>
+          <Field label="Customer / link">
+            <Select value={form.customerId} onChange={(e) => pickCustomer(e.target.value)}>
+              <option value="">Select customer (optional)</option>
               {(lookups.data?.customers || []).map((row) => (
                 <option key={row.id} value={row.id}>
                   {row.companyName} | {row.name} | {row.city} | {row.linkId}
@@ -263,18 +275,29 @@ export default function TicketsPage() {
           <Field label="Engineer 1">
             <Select value={form.eng1Id} onChange={(e) => setForm({ ...form, eng1Id: e.target.value })}>
               <option value="">Unassigned</option>
-              {(lookups.data?.engineers || []).map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+              {filteredEngineers.map((row) => (
+                <option key={row.id} value={row.id}>
+                  {row.name} {row.area ? `(${row.area})` : ""}
+                </option>
+              ))}
             </Select>
+            {selectedCity && filteredEngineers.length === 0 && (
+              <p className="mt-1 text-xs text-amber-600">No engineers found in {selectedCity}</p>
+            )}
           </Field>
           <Field label="Engineer 2">
             <Select value={form.eng2Id} onChange={(e) => setForm({ ...form, eng2Id: e.target.value })}>
               <option value="">Unassigned</option>
-              {(lookups.data?.engineers || []).map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+              {filteredEngineers.map((row) => (
+                <option key={row.id} value={row.id}>
+                  {row.name} {row.area ? `(${row.area})` : ""}
+                </option>
+              ))}
             </Select>
           </Field>
           <Field label="Closing time"><Input type="datetime-local" value={form.closeTime} onChange={(e) => setForm({ ...form, closeTime: e.target.value })} /></Field>
-          <Field label="A-End *"><Input value={form.aEnd} onChange={(e) => setForm({ ...form, aEnd: e.target.value })} required /></Field>
-          <Field label="B-End *"><Input value={form.bEnd} onChange={(e) => setForm({ ...form, bEnd: e.target.value })} required /></Field>
+          <Field label="A-End"><Input value={form.aEnd} onChange={(e) => setForm({ ...form, aEnd: e.target.value })} /></Field>
+          <Field label="B-End"><Input value={form.bEnd} onChange={(e) => setForm({ ...form, bEnd: e.target.value })} /></Field>
           <Field label="A optical power"><Input value={form.aOpticalPower} onChange={(e) => setForm({ ...form, aOpticalPower: e.target.value })} /></Field>
           <Field label="B optical power"><Input value={form.bOpticalPower} onChange={(e) => setForm({ ...form, bOpticalPower: e.target.value })} /></Field>
           <Field label="Optical status"><Select value={form.opticalStatus} onChange={(e) => setForm({ ...form, opticalStatus: e.target.value })}>{OPTICAL_STATUSES.map((item) => <option key={item}>{item}</option>)}</Select></Field>

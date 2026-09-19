@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { AppError } from "@/lib/errors";
 import { hashPassword } from "@/lib/auth";
+import { connectDB } from "@/lib/db";
 import { Engineer, Invite, User } from "@/models";
 import { mapEngineer } from "@/lib/services/mappers";
 import { normalizePhone } from "@/lib/utils";
@@ -41,15 +42,9 @@ async function syncEngineerLogin(engineer: { _id: unknown; name: string; mobile:
 }
 
 export async function listEngineers() {
-  const rows = await Engineer.find().sort({ name: 1 }).lean();
-  const users = await User.find({ engineerId: { $in: rows.map((row) => row._id) } })
-    .select("engineerId")
-    .lean();
-  const withLogin = new Set(users.map((user) => String(user.engineerId)));
-  return rows.map((row) => ({
-    ...mapEngineer(row as Record<string, unknown>),
-    hasPassword: withLogin.has(String(row._id)),
-  }));
+  await connectDB();
+  const docs = await Engineer.find().select("name area").sort({ name: 1 }).lean();
+  return docs.map(mapEngineer);
 }
 
 export async function saveEngineer(input: z.infer<typeof engineerSchema>, id?: string) {

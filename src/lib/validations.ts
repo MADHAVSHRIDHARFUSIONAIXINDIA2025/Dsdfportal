@@ -80,7 +80,7 @@ export const passwordUpdateSchema = z.object({
 });
 
 export const ticketSchema = z.object({
-  customerId: z.string().min(1, "Customer is required"),
+  customerId: z.preprocess(emptyToUndef, z.string().optional()),
   tktNo: z.string().min(1, "Company ticket number is required"),
   ticketType: z.enum(TICKET_TYPES).default("Support"),
   openTime: z.string().optional(),
