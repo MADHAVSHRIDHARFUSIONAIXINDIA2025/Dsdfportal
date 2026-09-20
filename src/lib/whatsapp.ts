@@ -23,7 +23,9 @@ function twilioConfig() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID || "";
   const authToken = process.env.TWILIO_AUTH_TOKEN || "";
   const from = process.env.TWILIO_WHATSAPP_FROM || "";
-  const contentSid = process.env.TWILIO_CONTENT_SID || "";
+  // Only use ContentSid when explicitly enabled — sample templates ignore freeform ticket text
+  const useTemplate = process.env.TWILIO_USE_CONTENT_TEMPLATE === "1";
+  const contentSid = useTemplate ? process.env.TWILIO_CONTENT_SID || "" : "";
   return { accountSid, authToken, from, contentSid };
 }
 
@@ -127,32 +129,29 @@ export async function sendTwilioWhatsApp(to: string, body: string, input?: Ticke
     return data;
   }
 
-  // Prefer Content template (required for business-initiated WhatsApp), fall back to Body
+  // Send freeform Body with full ticket details (works on Twilio sandbox / session).
+  // ContentSid templates are fixed approved text — enable only with TWILIO_USE_CONTENT_TEMPLATE=1
   if (contentSid) {
-    try {
-      const params = new URLSearchParams();
-      params.set("To", toAddr);
-      params.set("From", fromAddr);
-      params.set("ContentSid", contentSid);
-      params.set(
-        "ContentVariables",
-        contentVariables(
-          input || {
-            to,
-            engineerName: "",
-            ticketNo: "",
-            ticketType: "",
-            customer: "",
-            priority: "",
-          },
-          body
-        )
-      );
-      const data = await postMessage(params);
-      return { ok: true as const, dryRun: false as const, data };
-    } catch (error) {
-      console.warn("[whatsapp] ContentSid send failed, retrying with Body:", error);
-    }
+    const params = new URLSearchParams();
+    params.set("To", toAddr);
+    params.set("From", fromAddr);
+    params.set("ContentSid", contentSid);
+    params.set(
+      "ContentVariables",
+      contentVariables(
+        input || {
+          to,
+          engineerName: "",
+          ticketNo: "",
+          ticketType: "",
+          customer: "",
+          priority: "",
+        },
+        body
+      )
+    );
+    const data = await postMessage(params);
+    return { ok: true as const, dryRun: false as const, data };
   }
 
   const bodyParams = new URLSearchParams();
