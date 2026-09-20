@@ -23,9 +23,7 @@ function twilioConfig() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID || "";
   const authToken = process.env.TWILIO_AUTH_TOKEN || "";
   const from = process.env.TWILIO_WHATSAPP_FROM || "";
-  // Only use ContentSid when explicitly enabled — sample templates ignore freeform ticket text
-  const useTemplate = process.env.TWILIO_USE_CONTENT_TEMPLATE === "1";
-  const contentSid = useTemplate ? process.env.TWILIO_CONTENT_SID || "" : "";
+  const contentSid = process.env.TWILIO_CONTENT_SID || "";
   return { accountSid, authToken, from, contentSid };
 }
 
@@ -61,8 +59,37 @@ export function assignmentMessage(input: TicketNotifyInput) {
     "",
     `Open field app: ${appUrl}/ext/tickets`,
   ]
-    .filter((line) => line !== undefined)
+    .filter((line) => line !== "")
     .join("\n");
+}
+
+/** Short lines for Content template placeholders {{1}} {{2}} {{3}} ... */
+export function ticketDetailLines(input: TicketNotifyInput) {
+  const path = [input.aEnd, input.bEnd].filter(Boolean).join(" → ");
+  return {
+    engineer: input.engineerName || "Engineer",
+    ticketNo: input.ticketNo || "-",
+    summary: `${input.ticketType || "-"} | ${input.priority || "-"} | ${input.status || "Open"}`,
+    customer: input.customer || "-",
+    link: input.linkId || "-",
+    city: input.city || "-",
+    path: path || "-",
+    openTime: input.openTime || "-",
+    sla: input.slaHours != null && input.slaHours !== "" ? `${input.slaHours} hrs` : "-",
+    remarks: (input.remarks || "-").slice(0, 120),
+    details: [
+      `TKT ${input.ticketNo}`,
+      input.ticketType,
+      input.priority,
+      input.customer,
+      input.linkId,
+      input.city,
+      path,
+    ]
+      .filter(Boolean)
+      .join(" · ")
+      .slice(0, 200),
+  };
 }
 
 export function generateWhatsAppLink(input: TicketNotifyInput) {
@@ -71,21 +98,22 @@ export function generateWhatsAppLink(input: TicketNotifyInput) {
   return phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : null;
 }
 
-function contentVariables(input: TicketNotifyInput, body: string) {
-  // Maps common Content Template placeholders ({{1}}..{{12}})
+function contentVariables(input: TicketNotifyInput) {
+  const d = ticketDetailLines(input);
+  // Pack ticket fields into common {{1}}..{{12}} slots used by Content templates
   return JSON.stringify({
-    "1": input.engineerName || "-",
-    "2": input.ticketNo || "-",
-    "3": input.ticketType || "-",
-    "4": input.priority || "-",
-    "5": input.customer || "-",
-    "6": input.linkId || "-",
-    "7": input.city || "-",
-    "8": input.status || "-",
-    "9": [input.aEnd, input.bEnd].filter(Boolean).join(" → ") || "-",
-    "10": input.openTime || "-",
-    "11": String(input.slaHours ?? "-"),
-    "12": body.slice(0, 900),
+    "1": d.engineer,
+    "2": d.ticketNo,
+    "3": d.summary,
+    "4": d.customer,
+    "5": d.link,
+    "6": d.city,
+    "7": d.path,
+    "8": d.openTime,
+    "9": d.sla,
+    "10": d.remarks,
+    "11": d.details,
+    "12": d.details,
   });
 }
 
@@ -129,37 +157,43 @@ export async function sendTwilioWhatsApp(to: string, body: string, input?: Ticke
     return data;
   }
 
-  // Send freeform Body with full ticket details (works on Twilio sandbox / session).
-  // ContentSid templates are fixed approved text — enable only with TWILIO_USE_CONTENT_TEMPLATE=1
-  if (contentSid) {
-    const params = new URLSearchParams();
-    params.set("To", toAddr);
-    params.set("From", fromAddr);
-    params.set("ContentSid", contentSid);
-    params.set(
-      "ContentVariables",
-      contentVariables(
-        input || {
-          to,
-          engineerName: "",
-          ticketNo: "",
-          ticketType: "",
-          customer: "",
-          priority: "",
-        },
-        body
-      )
-    );
-    const data = await postMessage(params);
-    return { ok: true as const, dryRun: false as const, data };
+  const notifyInput =
+    input ||
+    ({
+      to,
+      engineerName: "",
+      ticketNo: "",
+      ticketType: "",
+      customer: "",
+      priority: "",
+    } satisfies TicketNotifyInput);
+
+  // 1) Try freeform Body first (full ticket details — works in sandbox / 24h session)
+  try {
+    const bodyParams = new URLSearchParams();
+    bodyParams.set("To", toAddr);
+    bodyParams.set("From", fromAddr);
+    bodyParams.set("Body", body);
+    const data = await postMessage(bodyParams);
+    return { ok: true as const, dryRun: false as const, data, mode: "body" as const };
+  } catch (bodyError) {
+    console.warn("[whatsapp] Body send failed (common outside 24h window):", bodyError);
   }
 
-  const bodyParams = new URLSearchParams();
-  bodyParams.set("To", toAddr);
-  bodyParams.set("From", fromAddr);
-  bodyParams.set("Body", body);
-  const data = await postMessage(bodyParams);
-  return { ok: true as const, dryRun: false as const, data };
+  // 2) Fall back to ContentSid so the message still delivers on WhatsApp
+  if (!contentSid) {
+    throw new Error(
+      "WhatsApp Body failed and TWILIO_CONTENT_SID is not set. On trial accounts use ContentSid, or have the engineer join the Twilio sandbox."
+    );
+  }
+
+  const params = new URLSearchParams();
+  params.set("To", toAddr);
+  params.set("From", fromAddr);
+  params.set("ContentSid", contentSid);
+  params.set("ContentVariables", contentVariables(notifyInput));
+  const data = await postMessage(params);
+  return { ok: true as const, dryRun: false as const, data, mode: "content" as const };
 }
 
 /** @deprecated Meta Cloud API — use Twilio via sendTwilioWhatsApp */
