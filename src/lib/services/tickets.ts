@@ -70,6 +70,8 @@ async function notifyIfAssigned(ticketId: string, prev?: { eng1Id?: string; eng2
     name?: string;
     linkId?: string;
     city?: string;
+    aEnd?: string;
+    bEnd?: string;
   };
 
   const jobs = [
@@ -94,6 +96,13 @@ async function notifyIfAssigned(ticketId: string, prev?: { eng1Id?: string; eng2
       linkId: customer?.linkId,
       priority: ticket.priority,
       city: customer?.city,
+      status: ticket.status,
+      aEnd: ticket.aEnd || customer?.aEnd,
+      bEnd: ticket.bEnd || customer?.bEnd,
+      openTime: ticket.openTime,
+      slaHours: ticket.slaHours,
+      affectedPath: ticket.affectedPath,
+      remarks: ticket.remarks,
     });
     const status = result.ok ? "sent" : result.dryRun ? "dry-run" : "failed";
     const whatsappLink = "whatsappLink" in result ? result.whatsappLink : undefined;
