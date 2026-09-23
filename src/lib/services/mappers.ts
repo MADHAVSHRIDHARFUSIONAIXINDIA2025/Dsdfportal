@@ -122,12 +122,13 @@ export function mapTicket(doc: Record<string, unknown>) {
 }
 
 function whatsappLabel(value: unknown) {
-  const row = value && typeof value === "object" ? (value as { eng1?: { status?: string }; eng2?: { status?: string } }) : {};
-  const statuses = [row.eng1?.status, row.eng2?.status].filter(Boolean);
-  if (statuses.includes("sent")) return "WA sent";
-  if (statuses.includes("dry-run")) return "WA not configured";
-  if (statuses.includes("failed")) return "WA failed";
-  if (statuses.includes("skipped")) return "WA skipped";
+  const row = value && typeof value === "object" ? (value as { eng1?: { status?: string; error?: string }; eng2?: { status?: string; error?: string } }) : {};
+  const entries = [row.eng1, row.eng2].filter(Boolean) as Array<{ status?: string; error?: string }>;
+  if (entries.some((e) => e.status === "sent" && e.error === "push")) return "Push sent";
+  if (entries.some((e) => e.status === "sent")) return "WA sent";
+  if (entries.some((e) => e.status === "dry-run")) return "Alert pending";
+  if (entries.some((e) => e.status === "failed")) return "Alert failed";
+  if (entries.some((e) => e.status === "skipped")) return "Alert skipped";
   return "";
 }
 

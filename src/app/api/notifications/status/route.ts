@@ -1,0 +1,25 @@
+import { apiHandler } from "@/lib/api-handler";
+import { ok } from "@/lib/http";
+import { isPushConfigured } from "@/lib/push";
+import { isWhatsAppConfigured } from "@/lib/whatsapp";
+
+export const GET = apiHandler("admin", async () => {
+  return ok({
+    push: {
+      configured: isPushConfigured(),
+      hasPublicKey: Boolean(process.env.VAPID_PUBLIC_KEY),
+      hasPrivateKey: Boolean(process.env.VAPID_PRIVATE_KEY),
+      subject: process.env.VAPID_SUBJECT || "mailto:admin@dsdf.local",
+    },
+    whatsapp: {
+      configured: isWhatsAppConfigured(),
+      provider: "twilio",
+      from: process.env.TWILIO_WHATSAPP_FROM || "",
+      hasAccountSid: Boolean(process.env.TWILIO_ACCOUNT_SID),
+      hasAuthToken: Boolean(process.env.TWILIO_AUTH_TOKEN),
+      hasContentSid: Boolean(process.env.TWILIO_CONTENT_SID),
+      businessNumber: process.env.WHATSAPP_BUSINESS_NUMBER || "",
+      role: "fallback",
+    },
+  });
+});

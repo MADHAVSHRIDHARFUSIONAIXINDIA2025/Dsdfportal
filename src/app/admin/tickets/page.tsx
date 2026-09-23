@@ -43,29 +43,46 @@ type Ticket = {
   duration: string | null;
   slaResult: string | null;
   whatsappStatus?: string;
-  notifications?: Array<{ engineer: string; status: string; error?: string; whatsappLink?: string | null }>;
+  notifications?: Array<{
+    engineer: string;
+    channel?: "push" | "whatsapp" | "none";
+    status: string;
+    error?: string;
+    whatsappLink?: string | null;
+  }>;
   attachments?: Array<{ name: string; url: string; size: number; uploadedBy?: string; uploadedAt?: string }>;
 };
 
-function whatsappToast(notices?: Array<{ engineer: string; status: string; error?: string; whatsappLink?: string | null }>) {
+function assignmentToast(
+  notices?: Array<{
+    engineer: string;
+    channel?: string;
+    status: string;
+    error?: string;
+    whatsappLink?: string | null;
+  }>
+) {
   if (!notices?.length) return "Ticket saved";
-  
+
   const hasLinks = notices.some((n) => n.whatsappLink);
-  
   if (hasLinks) {
-    // Show links in a custom toast message
     const linksHtml = notices
       .filter((n) => n.whatsappLink)
-      .map((n) => `<a href="${n.whatsappLink}" target="_blank" class="text-brand underline hover:text-blue-700">Message ${n.engineer}</a>`)
+      .map(
+        (n) =>
+          `<a href="${n.whatsappLink}" target="_blank" class="text-brand underline hover:text-blue-700">Message ${n.engineer}</a>`
+      )
       .join(" | ");
-    return `Ticket saved. Click to send WhatsApp: ${linksHtml}`;
+    return `Ticket saved. No push — click to send WhatsApp: ${linksHtml}`;
   }
-  
+
   const parts = notices.map((item) => {
-    if (item.status === "sent") return `WhatsApp sent to ${item.engineer}`;
-    if (item.status === "dry-run") return `WhatsApp not configured for ${item.engineer}`;
-    if (item.status === "skipped") return `${item.engineer}: ${item.error || "no mobile"}`;
-    return `WhatsApp failed for ${item.engineer}: ${item.error || "unknown error"}`;
+    const channel = item.channel || "whatsapp";
+    if (item.status === "sent" && channel === "push") return `Push sent to ${item.engineer}`;
+    if (item.status === "sent") return `WhatsApp fallback sent to ${item.engineer}`;
+    if (item.status === "dry-run") return `Alert not configured for ${item.engineer}`;
+    if (item.status === "skipped") return `${item.engineer}: ${item.error || "skipped"}`;
+    return `Alert failed for ${item.engineer}: ${item.error || "unknown error"}`;
   });
   return `Ticket saved. ${parts.join(". ")}`;
 }
@@ -171,9 +188,12 @@ export default function TicketsPage() {
       
       if (links.length > 0) {
         setWhatsappLinks(links);
-        toast.push("Ticket saved! Click links above to send WhatsApp", "ok");
+        toast.push("Ticket saved! No push subscription — use WhatsApp links above", "ok");
       } else {
-        toast.push(whatsappToast(saved.notifications), saved.notifications?.some((item) => item.status === "failed") ? "error" : "ok");
+        toast.push(
+          assignmentToast(saved.notifications),
+          saved.notifications?.some((item) => item.status === "failed") ? "error" : "ok"
+        );
       }
       
       setOpen(false);
@@ -240,7 +260,7 @@ export default function TicketsPage() {
           { key: "status", label: "Status" },
           { key: "eng1", label: "FE 1" },
           { key: "slaResult", label: "SLA" },
-          { key: "whatsappStatus", label: "WhatsApp" },
+          { key: "whatsappStatus", label: "Alert" },
         ]}
         rows={filtered}
         onEdit={(rowId) => edit(data.find((row) => row.id === rowId))}

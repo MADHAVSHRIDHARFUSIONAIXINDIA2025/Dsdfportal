@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: APP_NAME,
     short_name: "DSDF Ops",
     description: "Fiber operations field and admin app",
-    start_url: "/",
+    start_url: "/ext",
     display: "standalone",
     background_color: "#0b1f3a",
     theme_color: "#0b1f3a",
