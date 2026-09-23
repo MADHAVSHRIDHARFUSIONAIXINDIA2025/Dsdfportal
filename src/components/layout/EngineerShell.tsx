@@ -9,6 +9,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { post } from "@/lib/client";
+import { InstallAppCard } from "@/components/push/InstallAppCard";
 
 export function EngineerShell({ user, children }: { user: SessionUser; children: React.ReactNode }) {
   const pathname = usePathname();
@@ -98,7 +99,10 @@ export function EngineerShell({ user, children }: { user: SessionUser; children:
           </div>
         ) : null}
 
-        <main className="px-4 pb-28 pt-5 md:px-6 lg:px-8 lg:pb-10">{children}</main>
+        <main className="space-y-4 px-4 pb-28 pt-5 md:px-6 lg:px-8 lg:pb-10">
+          <InstallAppCard compact />
+          {children}
+        </main>
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 backdrop-blur lg:hidden">

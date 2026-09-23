@@ -162,7 +162,7 @@ export function PushEnableCard() {
           ) : null}
           {status === "unsupported" ? (
             <p className="mt-2 text-xs text-muted">
-              On iPhone, add this app to Home Screen first, then enable notifications.
+              On iPhone, use Safari → Share → Add to Home Screen, open the app icon, then enable notifications here.
             </p>
           ) : null}
         </div>
