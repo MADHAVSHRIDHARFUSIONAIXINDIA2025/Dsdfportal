@@ -6,6 +6,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { RecordCard } from "@/components/ui/RecordCard";
 import { Sheet } from "@/components/ui/Sheet";
+import { TableSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useResource } from "@/hooks/useResource";
 import { ATTENDANCE_STATUSES } from "@/lib/constants";
@@ -18,7 +19,7 @@ type Engineer = { id: string; name: string };
 const empty = { engineerId: "", attDate: "", inTime: "", outTime: "", status: "Present", remarks: "" };
 
 export default function AttendancePage() {
-  const { data = [], reload, remove } = useResource<Row[]>("/api/attendance");
+  const { data = [], loading, reload, remove } = useResource<Row[]>("/api/attendance");
   const engineers = useResource<Engineer[]>("/api/engineers");
   const [open, setOpen] = useState(false);
   const [id, setId] = useState("");
@@ -47,23 +48,36 @@ export default function AttendancePage() {
   return (
     <div>
       <PageIntro title="Attendance" subtitle="One record per engineer per day. Saving the same date updates it." action={{ label: "Mark attendance", onClick: () => edit() }} />
-      <div className="space-y-3 md:hidden">
-        {data.map((row) => (
-          <RecordCard key={row.id} title={row.engineer} meta={[row.attDate, `${row.inTime || "—"} to ${row.outTime || "—"}`]} badges={[row.status]} onEdit={() => edit(row)} onDelete={() => remove(row.id)} />
-        ))}
-      </div>
-      <DataTable
-        columns={[
-          { key: "attDate", label: "Date" },
-          { key: "engineer", label: "Engineer" },
-          { key: "inTime", label: "In" },
-          { key: "outTime", label: "Out" },
-          { key: "status", label: "Status" },
-        ]}
-        rows={data}
-        onEdit={(rowId) => edit(data.find((row) => row.id === rowId))}
-        onDelete={remove}
-      />
+      {loading ? (
+        <>
+          <div className="md:hidden">
+            <CardSkeleton count={5} />
+          </div>
+          <div className="hidden md:block">
+            <TableSkeleton rows={5} columns={5} />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="space-y-3 md:hidden">
+            {data.map((row) => (
+              <RecordCard key={row.id} title={row.engineer} meta={[row.attDate, `${row.inTime || "—"} to ${row.outTime || "—"}`]} badges={[row.status]} onEdit={() => edit(row)} onDelete={() => remove(row.id)} />
+            ))}
+          </div>
+          <DataTable
+            columns={[
+              { key: "attDate", label: "Date" },
+              { key: "engineer", label: "Engineer" },
+              { key: "inTime", label: "In" },
+              { key: "outTime", label: "Out" },
+              { key: "status", label: "Status" },
+            ]}
+            rows={data}
+            onEdit={(rowId) => edit(data.find((row) => row.id === rowId))}
+            onDelete={remove}
+          />
+        </>
+      )}
       <Sheet open={open} title="Attendance" onClose={() => setOpen(false)}>
         <form onSubmit={save} className="grid gap-4">
           <Field label="Engineer *">

@@ -10,6 +10,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { JCAdd } from "@/components/ui/JCAdd";
 import { Sheet } from "@/components/ui/Sheet";
+import { TableSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useResource } from "@/hooks/useResource";
 import { OPTICAL_STATUSES, TICKET_STATUSES } from "@/lib/constants";
@@ -54,7 +55,7 @@ type JCRecord = {
 };
 
 export default function EngineerTicketsPage() {
-  const { data = [], reload } = useResource<Ticket[]>("/api/tickets");
+  const { data = [], loading, reload } = useResource<Ticket[]>("/api/tickets");
   const [current, setCurrent] = useState<Ticket | null>(null);
   const [attachments, setAttachments] = useState<Array<{ name: string; url: string; size: number; uploadedBy?: string; uploadedAt?: string }>>([]);
   const [jcRecords, setJcRecords] = useState<JCRecord[]>([]);
@@ -105,43 +106,56 @@ export default function EngineerTicketsPage() {
   return (
     <div>
       <PageIntro title="My tickets" subtitle="Update status and optical readings from site or desktop." />
-      <div className="space-y-3 md:hidden">
-        {data.length ? (
-          data.map((ticket) => (
-            <button key={ticket.id} className="w-full text-left" onClick={() => openTicket(ticket)}>
-              <Card className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{ticket.ticketType}</p>
-                    <h3 className="mt-1 text-lg font-bold">{ticket.tktNo}</h3>
-                    <p className="mt-1 text-sm text-muted">{ticket.customer}</p>
-                    <p className="text-xs text-muted">{ticket.linkId} · {ticket.city}</p>
-                  </div>
-                  <Badge tone={statusTone(ticket.status)}>{ticket.status}</Badge>
-                </div>
-              </Card>
-            </button>
-          ))
-        ) : (
-          <EmptyState title="Nothing assigned" hint="New jobs appear here and on WhatsApp." />
-        )}
-      </div>
-      <DataTable
-        columns={[
-          { key: "tktNo", label: "Ticket" },
-          { key: "ticketType", label: "Type" },
-          { key: "customer", label: "Customer" },
-          { key: "linkId", label: "Link" },
-          { key: "city", label: "City" },
-          { key: "status", label: "Status" },
-          { key: "opticalStatus", label: "Optical" },
-        ]}
-        rows={data}
-        onEdit={(id) => {
-          const ticket = data.find((row) => row.id === id);
-          if (ticket) openTicket(ticket);
-        }}
-      />
+      {loading ? (
+        <>
+          <div className="md:hidden">
+            <CardSkeleton count={4} />
+          </div>
+          <div className="hidden md:block">
+            <TableSkeleton rows={5} columns={7} />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="space-y-3 md:hidden">
+            {data.length ? (
+              data.map((ticket) => (
+                <button key={ticket.id} className="w-full text-left" onClick={() => openTicket(ticket)}>
+                  <Card className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{ticket.ticketType}</p>
+                        <h3 className="mt-1 text-lg font-bold">{ticket.tktNo}</h3>
+                        <p className="mt-1 text-sm text-muted">{ticket.customer}</p>
+                        <p className="text-xs text-muted">{ticket.linkId} · {ticket.city}</p>
+                      </div>
+                      <Badge tone={statusTone(ticket.status)}>{ticket.status}</Badge>
+                    </div>
+                  </Card>
+                </button>
+              ))
+            ) : (
+              <EmptyState title="Nothing assigned" hint="New jobs appear here and on WhatsApp." />
+            )}
+          </div>
+          <DataTable
+            columns={[
+              { key: "tktNo", label: "Ticket" },
+              { key: "ticketType", label: "Type" },
+              { key: "customer", label: "Customer" },
+              { key: "linkId", label: "Link" },
+              { key: "city", label: "City" },
+              { key: "status", label: "Status" },
+              { key: "opticalStatus", label: "Optical" },
+            ]}
+            rows={data}
+            onEdit={(id) => {
+              const ticket = data.find((row) => row.id === id);
+              if (ticket) openTicket(ticket);
+            }}
+          />
+        </>
+      )}
       <Sheet open={Boolean(current)} title={current?.tktNo || "Ticket"} onClose={() => { setCurrent(null); setAttachments([]); setJcRecords([]); }}>
         {current ? (
           <form onSubmit={save} className="grid gap-4 md:grid-cols-2">

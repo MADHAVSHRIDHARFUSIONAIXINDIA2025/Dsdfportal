@@ -4,6 +4,7 @@ import { APP_NAME, COMPANY_LEGAL } from "@/lib/constants";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { api, post } from "@/lib/client";
+import { ensurePushSubscription } from "@/lib/push-client";
 import { useToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -50,7 +51,18 @@ export function AuthScreen({
         identifier: form.get("identifier"),
         password: form.get("password"),
       });
-      router.replace(result.user.role === "admin" ? "/admin" : "/ext");
+
+      // Login tap is a user gesture — request notifications immediately for engineers
+      if (result.user.role === "engineer") {
+        try {
+          const push = await ensurePushSubscription();
+          if (push.ok) toast.push("Ticket notifications enabled");
+        } catch {
+          /* AutoEnablePush will prompt inside the app */
+        }
+      }
+
+      router.replace(result.user.role === "admin" ? "/admin" : redirectTo || "/ext");
       router.refresh();
     } catch (error) {
       toast.push(error instanceof Error ? error.message : "Login failed", "error");
@@ -72,6 +84,11 @@ export function AuthScreen({
         <form onSubmit={onSubmit} className="rounded-[28px] bg-white p-5 shadow-2xl">
           <h2 className="text-xl font-bold text-ink">{needsSetup ? "Create first admin" : title}</h2>
           <p className="mt-1 text-sm text-muted">{needsSetup ? "This workspace has no admin yet." : subtitle}</p>
+          {role === "engineer" && !needsSetup ? (
+            <p className="mt-2 rounded-xl bg-brand-soft p-2 text-xs text-brand">
+              After Continue, allow notifications when asked so ticket alerts turn on automatically.
+            </p>
+          ) : null}
           <div className="mt-5 space-y-4">
             {needsSetup ? (
               <Field label="Full name">
@@ -87,7 +104,13 @@ export function AuthScreen({
               />
             </Field>
             <Field label="Password">
-              <Input name="password" type="password" required minLength={needsSetup ? 8 : 6} autoComplete="current-password" />
+              <Input
+                name="password"
+                type="password"
+                required
+                minLength={needsSetup ? 8 : 6}
+                autoComplete="current-password"
+              />
             </Field>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Please wait..." : needsSetup ? "Create admin" : "Continue"}

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, StatCard } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
 import { Field, Input, Select } from "@/components/ui/Field";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { api } from "@/lib/client";
 import { ATTENDANCE_STATUSES } from "@/lib/constants";
 import { useResource } from "@/hooks/useResource";
@@ -49,12 +50,16 @@ export default function ReportsPage() {
       <Card className="mb-6 p-5">
         <h3 className="font-bold">Incoming ticket flow</h3>
         <div className="mt-4 space-y-3">
-          {(flow.data || []).map((row) => (
-            <div key={row.month} className="rounded-2xl bg-canvas p-3">
-              <p className="font-semibold">{row.label}</p>
-              <p className="text-sm text-muted">Implementation {row.implementation} · Support {row.support}</p>
-            </div>
-          ))}
+          {flow.loading ? (
+            <TableSkeleton rows={4} columns={2} />
+          ) : (
+            (flow.data || []).map((row) => (
+              <div key={row.month} className="rounded-2xl bg-canvas p-3">
+                <p className="font-semibold">{row.label}</p>
+                <p className="text-sm text-muted">Implementation {row.implementation} · Support {row.support}</p>
+              </div>
+            ))
+          )}
         </div>
       </Card>
 
@@ -62,16 +67,20 @@ export default function ReportsPage() {
         <h3 className="font-bold">Repeated links after resolution</h3>
         <p className="mt-1 text-sm text-muted">Same-month tickets that reopen after a resolved/closed ticket.</p>
         <div className="mt-4">
-          <DataTable
-            columns={[
-              { key: "month", label: "Month" },
-              { key: "linkId", label: "Link" },
-              { key: "customer", label: "Customer" },
-              { key: "repeatCount", label: "Repeats" },
-              { key: "ticketNos", label: "Tickets" },
-            ]}
-            rows={(repeats.data || []).map((row) => ({ ...row, id: `${row.month}-${row.linkId}` }))}
-          />
+          {repeats.loading ? (
+            <TableSkeleton rows={5} columns={5} />
+          ) : (
+            <DataTable
+              columns={[
+                { key: "month", label: "Month" },
+                { key: "linkId", label: "Link" },
+                { key: "customer", label: "Customer" },
+                { key: "repeatCount", label: "Repeats" },
+                { key: "ticketNos", label: "Tickets" },
+              ]}
+              rows={(repeats.data || []).map((row) => ({ ...row, id: `${row.month}-${row.linkId}` }))}
+            />
+          )}
         </div>
       </Card>
 

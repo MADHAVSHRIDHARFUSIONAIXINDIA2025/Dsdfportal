@@ -3,19 +3,9 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
-import { del, get, post } from "@/lib/client";
+import { del, get } from "@/lib/client";
+import { ensurePushSubscription, isPushSupported } from "@/lib/push-client";
 import { Bell, BellOff, Loader2 } from "lucide-react";
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
 
 type Status = "loading" | "unsupported" | "denied" | "enabled" | "disabled" | "unavailable";
 
@@ -30,7 +20,7 @@ export function PushEnableCard() {
   }, []);
 
   async function refresh() {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+    if (!isPushSupported()) {
       setStatus("unsupported");
       return;
     }
@@ -45,6 +35,10 @@ export function PushEnableCard() {
         setStatus("unavailable");
         return;
       }
+      // If already allowed, keep subscription synced without a manual enable click
+      if (Notification.permission === "granted") {
+        await ensurePushSubscription();
+      }
       const subStatus = await get<{ subscribed: boolean; count: number }>("/api/push/subscribe");
       setCount(subStatus.count);
       setStatus(subStatus.subscribed ? "enabled" : "disabled");
@@ -56,35 +50,19 @@ export function PushEnableCard() {
   async function enable() {
     setBusy(true);
     try {
-      const vapid = await get<{ configured: boolean; publicKey: string }>("/api/push/vapid-public-key");
-      if (!vapid.publicKey) throw new Error("Push is not configured on the server");
-
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        setStatus("denied");
-        toast.push("Notification permission was not granted", "error");
+      const result = await ensurePushSubscription();
+      if (!result.ok) {
+        if (result.reason === "denied") setStatus("denied");
+        if (result.reason === "unavailable") setStatus("unavailable");
+        if (result.reason === "unsupported") setStatus("unsupported");
+        toast.push(
+          result.reason === "denied"
+            ? "Notification permission was not granted"
+            : "Could not enable push",
+          "error"
+        );
         return;
       }
-
-      const registration = await navigator.serviceWorker.register("/sw.js");
-      await navigator.serviceWorker.ready;
-
-      const existing = await registration.pushManager.getSubscription();
-      const subscription =
-        existing ||
-        (await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapid.publicKey),
-        }));
-
-      const json = subscription.toJSON();
-      await post("/api/push/subscribe", {
-        endpoint: json.endpoint,
-        expirationTime: json.expirationTime,
-        keys: json.keys,
-        userAgent: navigator.userAgent,
-      });
-
       setStatus("enabled");
       setCount(1);
       toast.push("Push notifications enabled");
@@ -139,7 +117,7 @@ export function PushEnableCard() {
         <div className="flex-1">
           <h3 className="font-bold text-ink">Ticket push notifications</h3>
           <p className="mt-1 text-sm text-muted">
-            Get a phone notification when a ticket is assigned. Tap it to open My tickets.
+            Turned on at sign-in when possible. You can also manage it here.
           </p>
           <p className="mt-2 text-xs font-semibold text-ink">{label}</p>
           <div className="mt-4 flex flex-wrap gap-2">

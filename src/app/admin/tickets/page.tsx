@@ -7,6 +7,7 @@ import { Field, Input, SearchInput, Select, Textarea } from "@/components/ui/Fie
 import { FileUpload } from "@/components/ui/FileUpload";
 import { RecordCard } from "@/components/ui/RecordCard";
 import { Sheet } from "@/components/ui/Sheet";
+import { TableSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useResource } from "@/hooks/useResource";
 import { OPTICAL_STATUSES, PATH_NAMES, TICKET_PRIORITIES, TICKET_STATUSES, TICKET_TYPES } from "@/lib/constants";
@@ -115,7 +116,7 @@ const empty = {
 };
 
 export default function TicketsPage() {
-  const { data = [], reload, remove } = useResource<Ticket[]>("/api/tickets");
+  const { data = [], reload, remove, loading } = useResource<Ticket[]>("/api/tickets");
   const lookups = useResource<Lookups>("/api/lookups");
   const [open, setOpen] = useState(false);
   const [id, setId] = useState("");
@@ -240,32 +241,45 @@ export default function TicketsPage() {
       )}
       
       <SearchInput className="mb-4" placeholder="Search TKT / customer / status / ends..." value={q} onChange={(e) => setQ(e.target.value)} />
-      <div className="space-y-3 md:hidden">
-        {filtered.map((row) => (
-          <RecordCard
-            key={row.id}
-            title={row.tktNo}
-            meta={[row.customer, row.linkId, `${row.eng1 || "Unassigned"}${row.eng2 ? ` + ${row.eng2}` : ""}`]}
-            badges={[row.status, row.ticketType, row.slaResult || "", row.whatsappStatus || ""]}
-            onEdit={() => edit(row)}
-            onDelete={() => remove(row.id)}
+      {loading ? (
+        <>
+          <div className="md:hidden">
+            <CardSkeleton count={5} />
+          </div>
+          <div className="hidden md:block">
+            <TableSkeleton rows={6} columns={7} />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="space-y-3 md:hidden">
+            {filtered.map((row) => (
+              <RecordCard
+                key={row.id}
+                title={row.tktNo}
+                meta={[row.customer, row.linkId, `${row.eng1 || "Unassigned"}${row.eng2 ? ` + ${row.eng2}` : ""}`]}
+                badges={[row.status, row.ticketType, row.slaResult || "", row.whatsappStatus || ""]}
+                onEdit={() => edit(row)}
+                onDelete={() => remove(row.id)}
+              />
+            ))}
+          </div>
+          <DataTable
+            columns={[
+              { key: "tktNo", label: "TKT" },
+              { key: "ticketType", label: "Type" },
+              { key: "customer", label: "Customer" },
+              { key: "status", label: "Status" },
+              { key: "eng1", label: "FE 1" },
+              { key: "slaResult", label: "SLA" },
+              { key: "whatsappStatus", label: "Alert" },
+            ]}
+            rows={filtered}
+            onEdit={(rowId) => edit(data.find((row) => row.id === rowId))}
+            onDelete={remove}
           />
-        ))}
-      </div>
-      <DataTable
-        columns={[
-          { key: "tktNo", label: "TKT" },
-          { key: "ticketType", label: "Type" },
-          { key: "customer", label: "Customer" },
-          { key: "status", label: "Status" },
-          { key: "eng1", label: "FE 1" },
-          { key: "slaResult", label: "SLA" },
-          { key: "whatsappStatus", label: "Alert" },
-        ]}
-        rows={filtered}
-        onEdit={(rowId) => edit(data.find((row) => row.id === rowId))}
-        onDelete={remove}
-      />
+        </>
+      )}
       <Sheet open={open} title={id ? "Update ticket" : "New ticket"} onClose={() => setOpen(false)}>
         <form onSubmit={save} className="grid gap-4 md:grid-cols-2">
           <Field label="Ticket type">

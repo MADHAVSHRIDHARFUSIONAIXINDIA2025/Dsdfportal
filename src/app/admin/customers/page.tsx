@@ -7,6 +7,7 @@ import { Field, Input, SearchInput, Select, Textarea } from "@/components/ui/Fie
 import { JCAdd, type JCRecord } from "@/components/ui/JCAdd";
 import { RecordCard } from "@/components/ui/RecordCard";
 import { Sheet } from "@/components/ui/Sheet";
+import { TableSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useResource } from "@/hooks/useResource";
 import { CUSTOMER_CATEGORIES, FIBER_CORES, LINK_TYPES, MANAGE_BY, PATH_NAMES } from "@/lib/constants";
@@ -79,7 +80,7 @@ const empty: Omit<Customer, "id" | "companyName"> = {
 };
 
 export default function CustomersPage() {
-  const { data = [], reload, remove } = useResource<Customer[]>("/api/customers");
+  const { data = [], loading, reload, remove } = useResource<Customer[]>("/api/customers");
   const companies = useResource<Company[]>("/api/companies");
   const [open, setOpen] = useState(false);
   const [id, setId] = useState("");
@@ -184,32 +185,45 @@ export default function CustomersPage() {
           ))}
         </Select>
       </div>
-      <div className="space-y-3 md:hidden">
-        {filtered.map((row) => (
-          <RecordCard
-            key={row.id}
-            title={row.name}
-            meta={[row.companyName, row.linkId, `${row.city} · ${row.linkType} · ${row.pathName}`]}
-            badges={[row.status, row.customerCategory]}
-            onEdit={() => edit(row)}
-            onDelete={() => remove(row.id)}
+      {loading ? (
+        <>
+          <div className="md:hidden">
+            <CardSkeleton count={5} />
+          </div>
+          <div className="hidden md:block">
+            <TableSkeleton rows={6} columns={7} />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="space-y-3 md:hidden">
+            {filtered.map((row) => (
+              <RecordCard
+                key={row.id}
+                title={row.name}
+                meta={[row.companyName, row.linkId, `${row.city} · ${row.linkType} · ${row.pathName}`]}
+                badges={[row.status, row.customerCategory]}
+                onEdit={() => edit(row)}
+                onDelete={() => remove(row.id)}
+              />
+            ))}
+          </div>
+          <DataTable
+            columns={[
+              { key: "name", label: "Customer" },
+              { key: "companyName", label: "Company" },
+              { key: "linkId", label: "Link ID" },
+              { key: "city", label: "City" },
+              { key: "linkType", label: "Type" },
+              { key: "pathName", label: "Path" },
+              { key: "status", label: "Status" },
+            ]}
+            rows={filtered}
+            onEdit={(rowId) => edit(data.find((row) => row.id === rowId))}
+            onDelete={remove}
           />
-        ))}
-      </div>
-      <DataTable
-        columns={[
-          { key: "name", label: "Customer" },
-          { key: "companyName", label: "Company" },
-          { key: "linkId", label: "Link ID" },
-          { key: "city", label: "City" },
-          { key: "linkType", label: "Type" },
-          { key: "pathName", label: "Path" },
-          { key: "status", label: "Status" },
-        ]}
-        rows={filtered}
-        onEdit={(rowId) => edit(data.find((row) => row.id === rowId))}
-        onDelete={remove}
-      />
+        </>
+      )}
       <Sheet open={open} title={id ? "Update link" : "New customer / link"} onClose={() => setOpen(false)}>
         <form onSubmit={save} className="grid gap-4 md:grid-cols-2">
           <Field label="Customer *"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></Field>

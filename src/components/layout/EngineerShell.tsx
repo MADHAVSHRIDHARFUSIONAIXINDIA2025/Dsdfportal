@@ -10,6 +10,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { post } from "@/lib/client";
 import { InstallAppCard } from "@/components/push/InstallAppCard";
+import { AutoEnablePush } from "@/components/push/AutoEnablePush";
 
 export function EngineerShell({ user, children }: { user: SessionUser; children: React.ReactNode }) {
   const pathname = usePathname();
@@ -24,6 +25,7 @@ export function EngineerShell({ user, children }: { user: SessionUser; children:
 
   return (
     <div className="min-h-dvh bg-canvas">
+      <AutoEnablePush />
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 flex-col bg-navy text-white lg:flex">
         <div className="px-6 pb-4 pt-7">
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-200">Field Portal</p>

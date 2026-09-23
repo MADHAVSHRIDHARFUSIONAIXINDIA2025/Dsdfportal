@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
 import { Field, Input, Select } from "@/components/ui/Field";
+import { TableSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useResource } from "@/hooks/useResource";
 import { ATTENDANCE_STATUSES } from "@/lib/constants";
@@ -15,7 +16,7 @@ import { useState } from "react";
 type Row = { id: string; attDate: string; inTime: string; outTime: string; status: string; remarks: string; engineerId: string };
 
 export default function EngineerAttendancePage() {
-  const { data = [], reload } = useResource<Row[]>("/api/attendance");
+  const { data = [], loading, reload } = useResource<Row[]>("/api/attendance");
   const [status, setStatus] = useState("Present");
   const toast = useToast();
   const today = new Date().toISOString().slice(0, 10);
@@ -58,27 +59,40 @@ export default function EngineerAttendancePage() {
           <Button type="submit" className="w-full">Save attendance</Button>
         </form>
         <div>
-          <div className="space-y-3 md:hidden">
-            {data.slice(0, 12).map((row) => (
-              <Card key={row.id} className="flex items-center justify-between p-4">
-                <div>
-                  <p className="font-bold">{row.attDate}</p>
-                  <p className="text-sm text-muted">{row.inTime || "—"} · {row.outTime || "—"}</p>
-                </div>
-                <Badge tone={statusTone(row.status)}>{row.status}</Badge>
-              </Card>
-            ))}
-          </div>
-          <DataTable
-            columns={[
-              { key: "attDate", label: "Date" },
-              { key: "inTime", label: "In" },
-              { key: "outTime", label: "Out" },
-              { key: "status", label: "Status" },
-              { key: "remarks", label: "Remarks" },
-            ]}
-            rows={data}
-          />
+          {loading ? (
+            <>
+              <div className="md:hidden">
+                <CardSkeleton count={4} />
+              </div>
+              <div className="hidden md:block">
+                <TableSkeleton rows={5} columns={5} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-3 md:hidden">
+                {data.slice(0, 12).map((row) => (
+                  <Card key={row.id} className="flex items-center justify-between p-4">
+                    <div>
+                      <p className="font-bold">{row.attDate}</p>
+                      <p className="text-sm text-muted">{row.inTime || "—"} · {row.outTime || "—"}</p>
+                    </div>
+                    <Badge tone={statusTone(row.status)}>{row.status}</Badge>
+                  </Card>
+                ))}
+              </div>
+              <DataTable
+                columns={[
+                  { key: "attDate", label: "Date" },
+                  { key: "inTime", label: "In" },
+                  { key: "outTime", label: "Out" },
+                  { key: "status", label: "Status" },
+                  { key: "remarks", label: "Remarks" },
+                ]}
+                rows={data}
+              />
+            </>
+          )}
         </div>
       </div>
     </div>
