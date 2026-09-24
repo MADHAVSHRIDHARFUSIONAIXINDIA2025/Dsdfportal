@@ -43,8 +43,8 @@ async function syncEngineerLogin(engineer: { _id: unknown; name: string; mobile:
 
 export async function listEngineers() {
   await connectDB();
-  const docs = await Engineer.find().select("name area").sort({ name: 1 }).lean();
-  return docs.map(mapEngineer);
+  const docs = await Engineer.find().sort({ name: 1 }).lean();
+  return docs.map((row) => mapEngineer(row as Record<string, unknown>));
 }
 
 export async function saveEngineer(input: z.infer<typeof engineerSchema>, id?: string) {
