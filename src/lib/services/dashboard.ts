@@ -6,7 +6,7 @@ import type { RepeatLinkRow, TicketFlowBucket } from "@/types";
 export async function dashboardStats() {
   const [customers, tickets, engineers] = await Promise.all([
     Customer.find().lean(),
-    Ticket.find().lean(),
+    Ticket.find({ deletedAt: null }).lean(),
     Engineer.find({ status: "Active" }).lean(),
   ]);
 
@@ -25,7 +25,7 @@ export async function dashboardStats() {
 }
 
 export async function ticketFlow(): Promise<TicketFlowBucket[]> {
-  const tickets = await Ticket.find().lean();
+  const tickets = await Ticket.find({ deletedAt: null }).lean();
   const buckets = new Map<string, { implementation: number; support: number }>();
 
   for (const ticket of tickets) {
@@ -47,7 +47,7 @@ export async function ticketFlow(): Promise<TicketFlowBucket[]> {
 }
 
 export async function repeatLinks(): Promise<RepeatLinkRow[]> {
-  const tickets = await Ticket.find().populate("customerId").lean();
+  const tickets = await Ticket.find({ deletedAt: null }).populate("customerId").lean();
   const groups = new Map<string, typeof tickets>();
 
   for (const ticket of tickets) {

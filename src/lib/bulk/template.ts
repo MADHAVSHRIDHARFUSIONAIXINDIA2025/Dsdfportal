@@ -84,9 +84,9 @@ export const BULK_SHEETS: Record<
   },
   Tickets: {
     notes:
-      "Link ID* or Customer Name to attach link. Eng1 Mobile / Eng2 Mobile match Engineers sheet. Type: Support | Implementation. Priority: Low | Medium | High | Critical.",
+      "Ticket No is assigned automatically as DSDF/000001, DSDF/000002, and so on. Leave Ticket No blank for a new ticket. Fill an existing number only to update that ticket. Link ID or Customer Name attaches the link. Eng1 Mobile / Eng2 Mobile match Engineers. Type: Support | Implementation. Priority: Low | Medium | High | Critical.",
     headers: [
-      "Ticket No*",
+      "Ticket No",
       "Link ID",
       "Customer Name",
       "Ticket Type",
@@ -105,7 +105,7 @@ export const BULK_SHEETS: Record<
       "Remarks",
     ],
     sample: [
-      "CMP-1001",
+      "",
       "",
       "City Mall Link",
       "Support",

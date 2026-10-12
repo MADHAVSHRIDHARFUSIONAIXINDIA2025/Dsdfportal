@@ -86,7 +86,7 @@ export default function BulkUploadPage() {
             <li>Companies — name, contact, email, address</li>
             <li>Links — customer + company name + city (Link ID required only for Vodafone Idea Limited)</li>
             <li>Engineers — name + mobile (password optional)</li>
-            <li>Tickets — ticket no; match links by Link ID or Customer Name; engineers by mobile</li>
+            <li>Tickets — number is assigned as DSDF/000001 onward; leave Ticket No blank for new rows</li>
           </ul>
           <Button className="mt-4" onClick={downloadTemplate}>
             Download Excel template

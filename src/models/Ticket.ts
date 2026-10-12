@@ -4,6 +4,7 @@ const TicketSchema = new Schema(
   {
     customerId: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
     tktNo: { type: String, required: true },
+    deletedAt: { type: Date, default: null },
     openTime: String,
     priority: { type: String, default: "Medium" },
     status: { type: String, default: "Open" },
@@ -38,6 +39,6 @@ const TicketSchema = new Schema(
 );
 
 TicketSchema.index({ tktNo: 1 });
-TicketSchema.index({ status: 1, openTime: -1 });
+TicketSchema.index({ deletedAt: 1, status: 1, openTime: -1 });
 
 export const Ticket = models.Ticket || model("Ticket", TicketSchema);

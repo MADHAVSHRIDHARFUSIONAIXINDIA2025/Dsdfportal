@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     const ticketId = searchParams.get("ticketId") || "";
 
     if (!customerId && ticketId) {
-      const ticket = await Ticket.findById(ticketId).select("customerId").lean();
+      const ticket = await Ticket.findOne({ _id: ticketId, deletedAt: null }).select("customerId").lean();
       customerId = ticket?.customerId ? String(ticket.customerId) : "";
     }
 
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!customerId) {
-      const ticket = await Ticket.findById(ticketId).select("customerId").lean();
+      const ticket = await Ticket.findOne({ _id: ticketId, deletedAt: null }).select("customerId").lean();
       customerId = ticket?.customerId ? String(ticket.customerId) : "";
     }
 

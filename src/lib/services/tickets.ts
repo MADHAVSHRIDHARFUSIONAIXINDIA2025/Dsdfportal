@@ -8,6 +8,7 @@ import {
 import { notifyTicketAssignment } from "@/lib/whatsapp";
 import { Customer, Engineer, Ticket, User } from "@/models";
 import { mapTicket } from "@/lib/services/mappers";
+import { nextTicketNo } from "@/lib/ticket-no";
 import type { z } from "zod";
 import type { ticketSchema } from "@/lib/validations";
 
@@ -184,10 +185,12 @@ async function notifyIfAssigned(ticketId: string, prev?: { eng1Id?: string; eng2
   return notices;
 }
 
+const live = { deletedAt: null };
+
 export async function listTickets(filter?: { engineerId?: string }) {
   const query = filter?.engineerId
-    ? { $or: [{ eng1Id: filter.engineerId }, { eng2Id: filter.engineerId }] }
-    : {};
+    ? { ...live, $or: [{ eng1Id: filter.engineerId }, { eng2Id: filter.engineerId }] }
+    : live;
   const rows = await Ticket.find(query)
     .populate("customerId")
     .populate("eng1Id")
@@ -198,8 +201,15 @@ export async function listTickets(filter?: { engineerId?: string }) {
 }
 
 export async function saveTicket(input: TicketInput, id?: string) {
-  const payload = await hydrateTicket(input);
+  const hydrated = await hydrateTicket(input);
   const prev = id ? await Ticket.findById(id).lean() : null;
+  if (id && (!prev || prev.deletedAt)) throw new AppError("Ticket not found", 404);
+
+  const payload = {
+    ...hydrated,
+    // Client cannot choose the number. New tickets take the next serial; edits keep theirs.
+    tktNo: prev?.tktNo || (await nextTicketNo()),
+  };
   const doc = id
     ? await Ticket.findByIdAndUpdate(id, payload, { new: true, runValidators: true })
     : await Ticket.create(payload);
@@ -215,7 +225,12 @@ export async function saveTicket(input: TicketInput, id?: string) {
 }
 
 export async function deleteTicket(id: string) {
-  await Ticket.findByIdAndDelete(id);
+  const doc = await Ticket.findOneAndUpdate(
+    { _id: id, deletedAt: null },
+    { deletedAt: new Date() },
+    { new: true }
+  );
+  if (!doc) throw new AppError("Ticket not found", 404);
 }
 
 export async function getEngineersByIds(ids: string[]) {

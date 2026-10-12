@@ -333,15 +333,26 @@ export async function importBulkWorkbook(buffer: Buffer): Promise<BulkImportSumm
           remarks: cell(obj, "Remarks"),
         });
 
-        const existing = await Ticket.findOne({ tktNo: payload.tktNo });
-        if (existing) {
+        if (tktNo) {
+          const existing = await Ticket.findOne({ tktNo });
+          if (!existing) {
+            throw new Error(`Ticket ${tktNo} was not found. Leave Ticket No blank to create the next serial number.`);
+          }
+          if (existing.deletedAt) {
+            throw new Error(`Ticket ${tktNo} was deleted. That number is not reused.`);
+          }
           await saveTicket(payload, String(existing._id));
           summary.updated.Tickets += 1;
-          summary.results.push({ sheet: "Tickets", row: rowNum, ok: true, message: `Updated ${payload.tktNo}` });
+          summary.results.push({ sheet: "Tickets", row: rowNum, ok: true, message: `Updated ${tktNo}` });
         } else {
-          await saveTicket(payload);
+          const saved = await saveTicket({ ...payload, tktNo: undefined });
           summary.created.Tickets += 1;
-          summary.results.push({ sheet: "Tickets", row: rowNum, ok: true, message: `Created ${payload.tktNo}` });
+          summary.results.push({
+            sheet: "Tickets",
+            row: rowNum,
+            ok: true,
+            message: `Created ${saved.tktNo}`,
+          });
         }
       } catch (error) {
         summary.failed.Tickets += 1;

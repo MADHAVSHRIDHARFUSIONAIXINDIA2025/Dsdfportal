@@ -61,7 +61,7 @@ export async function saveCustomer(input: CustomerInput, id?: string) {
 
 export async function deleteCustomer(id: string) {
   const { Ticket } = await import("@/models");
-  const used = await Ticket.exists({ customerId: id });
+  const used = await Ticket.exists({ customerId: id, deletedAt: null });
   if (used) throw new AppError("Customer cannot be deleted because tickets exist");
   await Customer.findByIdAndDelete(id);
 }

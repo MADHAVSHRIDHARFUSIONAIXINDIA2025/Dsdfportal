@@ -297,7 +297,13 @@ export default function TicketsPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Company TKT no. *"><Input value={form.tktNo} onChange={(e) => setForm({ ...form, tktNo: e.target.value })} required /></Field>
+          <Field label="Ticket no.">
+            <Input
+              value={id ? form.tktNo : "Assigned on save — DSDF/000001"}
+              readOnly
+              disabled
+            />
+          </Field>
           <Field label="Affected path">
             <Select value={form.affectedPath} onChange={(e) => setForm({ ...form, affectedPath: e.target.value })}>
               {PATH_NAMES.map((item) => <option key={item}>{item}</option>)}
